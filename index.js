@@ -1858,4 +1858,8 @@ client.on("interactionCreate", async (interaction) => {
 (async () => {
   await registerCommands();
   await client.login(process.env.DISCORD_TOKEN);
+
+  setInterval(() => {
+    console.log("Heartbeat: bot alive");
+  }, 60000);
 })();
