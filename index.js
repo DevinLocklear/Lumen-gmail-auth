@@ -1178,15 +1178,61 @@ if (interaction.commandName === "connect-yahoo") {
 if (interaction.commandName === "save-yahoo") {
   await interaction.deferReply({ ephemeral: true });
 
-  const email = interaction.options.getString("email");
-  const appPassword = interaction.options.getString("app_password");
+  const discordUserId = interaction.user.id;
+  const email = interaction.options.getString("email").trim().toLowerCase();
+  const appPassword = interaction.options.getString("app_password").trim();
 
-  console.log("Yahoo saved:", email, appPassword);
+  try {
+    const { data: membership, error: membershipError } =
+      await getMembershipByDiscordUserId(discordUserId);
 
-  return interaction.editReply({
-    content: `✅ Yahoo connected for ${email}`,
-  });
-} //
+    if (membershipError) {
+      console.error(membershipError);
+      return interaction.editReply({
+        embeds: [buildErrorEmbed("Failed to find your membership.")],
+      });
+    }
+
+    if (!membership) {
+      return interaction.editReply({
+        embeds: [buildErrorEmbed("You are not in a group.")],
+      });
+    }
+
+    const payload = {
+      group_id: membership.group_id,
+      discord_user_id: discordUserId,
+      email,
+      google_email: email,
+      status: "connected",
+      provider: "yahoo",
+      yahoo_app_password: appPassword,
+      created_at: new Date().toISOString(),
+    };
+
+    const { error: upsertError } = await supabase
+      .from("gmail_connections")
+      .upsert(payload, {
+        onConflict: "group_id,discord_user_id,email",
+      });
+
+    if (upsertError) {
+      console.error("Yahoo save error:", upsertError);
+      return interaction.editReply({
+        embeds: [buildErrorEmbed("Failed to save Yahoo connection.")],
+      });
+    }
+
+    return interaction.editReply({
+      content: `✅ Yahoo connected for ${email}`,
+    });
+  } catch (err) {
+    console.error(err);
+    return interaction.editReply({
+      embeds: [buildErrorEmbed("Failed to save Yahoo connection.")],
+    });
+  }
+}
 
   if (interaction.commandName === "status") {
     await interaction.deferReply({ ephemeral: true });
