@@ -322,7 +322,7 @@ async function fetchProductMeta(url) {
         "User-Agent": "Mozilla/5.0",
         Accept: "text/html,application/xhtml+xml",
       },
-      timeout: 10000,
+      timeout: 5000,
       maxRedirects: 5,
     });
 
@@ -1018,9 +1018,20 @@ async function checkYahooEmails(connection) {
     const lock = await client.getMailboxLock("INBOX");
 
     try {
+      const mailbox = await client.mailboxOpen("INBOX");
+      const lastUid = Number(connection.yahoo_last_uid || 0);
+
+      if (!mailbox.exists) {
+        console.log(`Yahoo inbox empty for ${connection.email}`);
+        return;
+      }
+
+      const searchRange =
+        lastUid > 0 ? `${lastUid + 1}:*` : `${Math.max(1, mailbox.exists - 20)}:*`;
+
       const messages = [];
 
-      for await (const msg of client.fetch("1:*", {
+      for await (const msg of client.fetch(searchRange, {
         uid: true,
         envelope: true,
         source: true,
@@ -1029,10 +1040,18 @@ async function checkYahooEmails(connection) {
         messages.push(msg);
       }
 
-      const recentMessages = messages.slice(-20).reverse();
-      console.log(`Yahoo messages found for ${connection.email}:`, recentMessages.length);
+      if (!messages.length) {
+        console.log(`No new Yahoo messages for ${connection.email}`);
+        return;
+      }
 
-      for (const msg of recentMessages) {
+      console.log(`Yahoo new messages for ${connection.email}:`, messages.length);
+
+      let highestUidSeen = lastUid;
+
+      for (const msg of messages) {
+        highestUidSeen = Math.max(highestUidSeen, Number(msg.uid || 0));
+
         const yahooMessageId = `yahoo-${msg.uid}`;
         const alreadyProcessed = await wasMessageProcessed(connection.id, yahooMessageId);
 
@@ -1043,6 +1062,7 @@ async function checkYahooEmails(connection) {
         const parsedEvent = await parseYahooMessage(msg, connection);
 
         if (!parsedEvent) {
+          await markMessageProcessed(connection.id, yahooMessageId);
           continue;
         }
 
@@ -1064,6 +1084,17 @@ async function checkYahooEmails(connection) {
         await sendWebhookForEvent(insertedEvent.group_id, insertedEvent);
         await markMessageProcessed(connection.id, yahooMessageId);
       }
+
+      if (highestUidSeen > lastUid) {
+        const { error: uidUpdateError } = await supabase
+          .from("gmail_connections")
+          .update({ yahoo_last_uid: highestUidSeen })
+          .eq("id", connection.id);
+
+        if (uidUpdateError) {
+          console.error("Yahoo last UID update error:", uidUpdateError.message);
+        }
+      }
     } finally {
       lock.release();
     }
@@ -1073,7 +1104,7 @@ async function checkYahooEmails(connection) {
 }
 
 async function checkEmails() {
-  console.log("Checking emails...");
+  console.log(`Checking emails for ${connections?.length || 0} connected inbox(es)...`);
 
   const { data: connections, error: connectionError } = await supabase
     .from("gmail_connections")

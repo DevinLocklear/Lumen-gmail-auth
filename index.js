@@ -426,48 +426,12 @@ async function getUserRankAndSpend(groupId, discordUserId) {
   return { rank, spend };
 }
 
-async function getUserRankAndSpend(groupId, discordUserId) {
-  const since = new Date();
-  since.setDate(since.getDate() - 30);
-
-  const { data: events, error } = await supabase
-    .from("checkout_events")
-    .select("discord_user_id, order_total")
-    .eq("group_id", groupId)
-    .gte("created_at", since.toISOString());
-
-  if (error || !events) {
-    console.error("Rank calc error:", error);
-    return { rank: null, spend: 0 };
-  }
-
-  const userTotals = {};
-
-  for (const event of events) {
-    const id = event.discord_user_id;
-    userTotals[id] = (userTotals[id] || 0) + Number(event.order_total || 0);
-  }
-
-  const sorted = Object.entries(userTotals).sort((a, b) => b[1] - a[1]);
-
-  let rank = null;
-  let spend = 0;
-
-  sorted.forEach(([id, total], index) => {
-    if (id === discordUserId) {
-      rank = index + 1;
-      spend = total;
-    }
-  });
-
-  return { rank, spend };
-}
-
 async function buildCheckoutEmbed(event, discordUserId) {
   const { rank, spend } = await getUserRankAndSpend(
     event.group_id,
     discordUserId
   );
+
 
   const embed = new EmbedBuilder()
     .setColor(0x57f287)
@@ -1118,7 +1082,7 @@ client.on("interactionCreate", async (interaction) => {
     }
   }
 
-  if (interaction.commandName === "connect-gmail") {
+      if (interaction.commandName === "connect-gmail") {
     await interaction.deferReply({ ephemeral: true });
 
     const discordUserId = interaction.user.id;
@@ -1157,9 +1121,9 @@ client.on("interactionCreate", async (interaction) => {
   console.error(err);
   return interaction.editReply({
     embeds: [buildErrorEmbed("Failed to generate Gmail connection link.")],
-  });
-}
-}
+      });
+    }
+    }
 
 if (interaction.commandName === "connect-yahoo") {
   await interaction.deferReply({ ephemeral: true });
