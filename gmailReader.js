@@ -856,23 +856,70 @@ async function parsePokemonCenterEmail(
   const lines = bodyText.split("\n").map(cleanCandidateLine).filter(Boolean);
 
   console.log("PokemonCenter parser running...");
-  console.log("PokemonCenter lines preview:", lines.slice(0, 40));
+  console.log("PokemonCenter lines preview:", lines.slice(0, 80));
+
+  function isBadPokemonCenterLine(line) {
+    const normalized = normalizeText(line);
+
+    if (!normalized) return true;
+    if (
+      normalized === "sincerely," ||
+      normalized === "pokémon center" ||
+      normalized === "pokemon center"
+    ) {
+      return true;
+    }
+    if (normalized.includes("billing address")) return true;
+    if (normalized.includes("shipping address")) return true;
+    if (normalized.includes("order details")) return true;
+    if (normalized.includes("order summary")) return true;
+    if (normalized.includes("order subtotal")) return true;
+    if (normalized.includes("sales tax")) return true;
+    if (normalized.includes("shipping")) return true;
+    if (normalized.includes("order total")) return true;
+    if (normalized.includes("customer support")) return true;
+    if (normalized.includes("refund policy")) return true;
+    if (normalized.includes("terms of use")) return true;
+    if (normalized.includes("privacy notice")) return true;
+    if (normalized.includes("legal info")) return true;
+    if (/^sku\b/i.test(line)) return true;
+    if (/^\$?\d+(\.\d{2})?$/.test(normalized)) return true;
+    if (/^[a-z]+\s+[a-z]+,\s*[a-z]{2}\s*\d{5}$/i.test(line)) return true;
+
+    return false;
+  }
+
+  function isGoodPokemonCenterProductLine(line, fullBodyText) {
+    if (!line) return false;
+    if (isBadPokemonCenterLine(line)) return false;
+    if (!includesAny(line, COLLECTIBLE_KEYWORDS)) return false;
+    if (!looksCollectibleRelated(line, fullBodyText)) return false;
+    return true;
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
     if (/^qty[: ]*\d+/i.test(line)) {
-      const productLine = sanitizeCandidate(lines[i - 1]);
+      const nearbyCandidates = [
+        lines[i - 1],
+        lines[i - 2],
+        lines[i - 3],
+        lines[i - 4],
+        lines[i - 5],
+      ].filter(Boolean);
+
+      const productLine = nearbyCandidates.find((candidate) =>
+        isGoodPokemonCenterProductLine(candidate, bodyText)
+      );
 
       if (!productLine) continue;
-      if (!includesAny(productLine, COLLECTIBLE_KEYWORDS)) continue;
-      if (!looksCollectibleRelated(productLine, bodyText)) continue;
 
       const qtyMatch = line.match(/qty[: ]*(\d+)/i);
       const quantity = qtyMatch ? Number(qtyMatch[1]) : 1;
 
       let unitPrice = 0;
-      for (let j = i; j < i + 6 && j < lines.length; j++) {
+      for (let j = i; j < i + 8 && j < lines.length; j++) {
         const priceMatch = lines[j].match(/price[: ]*\$ ?(\d+(?:\.\d{2})?)/i);
         if (priceMatch) {
           unitPrice = Number(priceMatch[1]);
@@ -882,7 +929,7 @@ async function parsePokemonCenterEmail(
 
       if (!unitPrice) {
         const nearbyWindow = lines
-          .slice(Math.max(0, i - 2), Math.min(lines.length, i + 8))
+          .slice(Math.max(0, i - 3), Math.min(lines.length, i + 10))
           .join(" ");
         unitPrice = extractPrice(nearbyWindow) || 0;
       }
@@ -893,6 +940,8 @@ async function parsePokemonCenterEmail(
         cleanProductName(productLine),
         bestProductLink
       );
+
+      console.log("PokemonCenter qty/price match:", productLine);
 
       return {
         group_id: connection.group_id,
@@ -913,15 +962,23 @@ async function parsePokemonCenterEmail(
   for (let i = 0; i < lines.length; i++) {
     const candidate = sanitizeCandidate(lines[i]);
     if (!candidate) continue;
-    if (!includesAny(candidate, COLLECTIBLE_KEYWORDS)) continue;
-    if (!looksCollectibleRelated(candidate, bodyText)) continue;
+    if (!isGoodPokemonCenterProductLine(candidate, bodyText)) continue;
 
     const nearbyWindow = lines
-      .slice(Math.max(0, i - 3), Math.min(lines.length, i + 8))
+      .slice(Math.max(0, i - 5), Math.min(lines.length, i + 12))
       .join(" ");
 
     const quantity = extractQuantity(nearbyWindow) || 1;
-    const price = extractPrice(nearbyWindow) || 0;
+
+    let price = 0;
+    const explicitPriceMatch = nearbyWindow.match(
+      /price[: ]*\$ ?(\d+(?:\.\d{2})?)/i
+    );
+    if (explicitPriceMatch) {
+      price = Number(explicitPriceMatch[1]);
+    } else {
+      price = extractPrice(nearbyWindow) || 0;
+    }
 
     const bestProductLink = pickBestProductLink("Pokemon Center", rawBody);
     const enriched = await enrichProductMeta(
@@ -1072,8 +1129,6 @@ async function parseYahooMessage(messageData, connection) {
     : new Date().toISOString();
 
   const rawSource = decodeImapBuffer(messageData.source);
-
-  // Split raw MIME into headers + body
   const parts = rawSource.split(/\r?\n\r?\n/);
   const mimeBody = parts.length > 1 ? parts.slice(1).join("\n\n") : rawSource;
 
