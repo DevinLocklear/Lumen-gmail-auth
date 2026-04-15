@@ -21,7 +21,7 @@ const RETAILER_SENDERS = {
   Target: ["target.com", "oe1.target.com", "oe.target.com"],
   Walmart: ["walmart.com", "ib.transaction.walmart.com"],
   PokemonCenter: ["em.pokemon.com", "pokemon.com"],
-  Test: ["Lensoflock@gmail.com", "babylock23@gmail.com"]
+  Test: ["lensoflock@gmail.com", "babylock23@gmail.com"]
 };
 
 const COLLECTIBLE_KEYWORDS = [
@@ -392,8 +392,11 @@ function detectRetailer(fromHeader, subject, bodyText) {
 }
 
 function senderMatchesRetailer(retailer, fromHeader) {
-  const sender = (fromHeader || "").toLowerCase();
-  const allowed = RETAILER_SENDERS[retailer] || [];
+  const sender = String(fromHeader || "").toLowerCase();
+  const allowed = (RETAILER_SENDERS[retailer] || []).map((value) =>
+    String(value).toLowerCase()
+  );
+
   return allowed.some((domain) => sender.includes(domain));
 }
 
