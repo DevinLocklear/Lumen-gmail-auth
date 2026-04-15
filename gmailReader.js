@@ -21,7 +21,7 @@ const RETAILER_SENDERS = {
   Target: ["target.com", "oe1.target.com", "oe.target.com"],
   Walmart: ["walmart.com", "ib.transaction.walmart.com"],
   PokemonCenter: ["em.pokemon.com", "pokemon.com"],
-  Test: ["lensoflock@gmail.com", "babylock23@gmail.com"]
+  Test: ["lensoflock@gmail.com", "babylock23@gmail.com"],
 };
 
 const COLLECTIBLE_KEYWORDS = [
@@ -154,7 +154,10 @@ function decodeBase64Url(data) {
 }
 
 function extractHeader(headers, name) {
-  return headers?.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || "";
+  return (
+    headers?.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ||
+    ""
+  );
 }
 
 function flattenParts(parts = []) {
@@ -176,10 +179,12 @@ function extractBodyText(payload) {
   }
 
   const allParts = flattenParts(payload.parts || []);
-  const textPlain = allParts.find((p) => p.mimeType === "text/plain" && p.body?.data) || null;
+  const textPlain =
+    allParts.find((p) => p.mimeType === "text/plain" && p.body?.data) || null;
   if (textPlain?.body?.data) return decodeBase64Url(textPlain.body.data);
 
-  const textHtml = allParts.find((p) => p.mimeType === "text/html" && p.body?.data) || null;
+  const textHtml =
+    allParts.find((p) => p.mimeType === "text/html" && p.body?.data) || null;
   if (textHtml?.body?.data) return decodeBase64Url(textHtml.body.data);
 
   return "";
@@ -189,7 +194,10 @@ function stripHtmlPreserveLines(html) {
   return (html || "")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<\/(p|div|li|tr|h1|h2|h3|h4|h5|h6|table|tbody|tr|td|span)>/gi, "\n")
+    .replace(
+      /<\/(p|div|li|tr|h1|h2|h3|h4|h5|h6|table|tbody|tr|td|span)>/gi,
+      "\n"
+    )
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
@@ -230,7 +238,10 @@ function isSensitiveLine(line) {
   if (!normalized) return true;
   if (includesAny(normalized, SENSITIVE_PATTERNS)) return true;
   if (/@/.test(normalized)) return true;
-  if (/\b(order|invoice|confirmation)\b/.test(normalized) && /\d{3,}/.test(normalized)) {
+  if (
+    /\b(order|invoice|confirmation)\b/.test(normalized) &&
+    /\d{3,}/.test(normalized)
+  ) {
     return true;
   }
   return false;
@@ -245,7 +256,12 @@ function sanitizeCandidate(line) {
   if (isUrlOnlyLine(cleaned)) return null;
   if (isImageUrlLine(cleaned)) return null;
   if (includesAny(normalized, NON_COLLECTIBLE_BLOCKLIST)) return null;
-  if (isSensitiveLine(cleaned) && !includesAny(cleaned, COLLECTIBLE_KEYWORDS)) return null;
+  if (
+    isSensitiveLine(cleaned) &&
+    !includesAny(cleaned, COLLECTIBLE_KEYWORDS)
+  ) {
+    return null;
+  }
 
   return cleaned;
 }
@@ -261,10 +277,6 @@ function cleanProductName(name) {
 
 function extractLinks(text) {
   return text.match(/https?:\/\/[^\s)"'>]+/gi) || [];
-}
-
-function extractImageUrls(text) {
-  return text.match(/https?:\/\/[^\s)"'>]+\.(jpg|jpeg|png|webp)/gi) || [];
 }
 
 function cleanTargetUrl(url) {
@@ -307,7 +319,9 @@ function pickBestProductLink(retailer, rawBody) {
   }
 
   if (retailer === "Pokemon Center" || retailer === "PokemonCenter") {
-    return nonImageLinks.find((link) => /pokemoncenter\.com/i.test(link)) || null;
+    return (
+      nonImageLinks.find((link) => /pokemoncenter\.com/i.test(link)) || null
+    );
   }
 
   return nonImageLinks[0] || null;
@@ -393,13 +407,11 @@ function detectRetailer(fromHeader, subject, bodyText) {
 
 function senderMatchesRetailer(retailer, fromHeader) {
   const sender = String(fromHeader || "").toLowerCase();
-
-  // Extract actual email inside <>
   const emailMatch = sender.match(/<([^>]+)>/);
   const cleanEmail = emailMatch ? emailMatch[1] : sender;
 
-  const allowed = (RETAILER_SENDERS[retailer] || []).map((v) =>
-    String(v).toLowerCase()
+  const allowed = (RETAILER_SENDERS[retailer] || []).map((value) =>
+    String(value).toLowerCase()
   );
 
   return allowed.some((domain) => cleanEmail.includes(domain));
@@ -429,9 +441,10 @@ function isShippingOrTrackingEmail(retailer, subject, bodyText) {
       "track package",
     ];
 
-    const isTargetConfirmationSubject = targetConfirmationSubjectSignals.some((signal) =>
-      subjectText.includes(signal)
-    );
+    const isTargetConfirmationSubject =
+      targetConfirmationSubjectSignals.some((signal) =>
+        subjectText.includes(signal)
+      );
 
     const isTargetShippingSubject = targetShippingSubjectSignals.some((signal) =>
       subjectText.includes(signal)
@@ -512,17 +525,25 @@ function isInitialOrderConfirmation(retailer, subject, bodyText) {
       "thanks for your order",
       "order total",
     ];
-    return walmartConfirmationSignals.some((signal) => combined.includes(signal));
+    return walmartConfirmationSignals.some((signal) =>
+      combined.includes(signal)
+    );
   }
 
   if (retailer === "PokemonCenter") {
     const pokemonCenterConfirmationSignals = [
       "thank you for shopping at pokemoncenter.com",
+      "thank you for placing an order with us",
       "order summary",
+      "order details",
       "qty:",
       "price:",
+      "order subtotal",
+      "order total",
     ];
-    return pokemonCenterConfirmationSignals.some((signal) => combined.includes(signal));
+    return pokemonCenterConfirmationSignals.some((signal) =>
+      combined.includes(signal)
+    );
   }
 
   return false;
@@ -604,7 +625,9 @@ async function sendWebhookForEvent(groupId, event) {
   if (!response.ok) {
     console.error("Webhook send failed:", response.status, response.statusText);
   } else {
-    console.log(`Webhook sent for event: ${event.retailer} | ${event.product_name}`);
+    console.log(
+      `Webhook sent for event: ${event.retailer} | ${event.product_name}`
+    );
   }
 }
 
@@ -687,7 +710,6 @@ async function parseTargetEmail(bodyText, connection, internalDate, rawBody) {
       const productLine = nearby.find((candidate) => {
         if (!candidate) return false;
         if (isUrlOnlyLine(candidate)) return false;
-        if (isImageUrlLine(candidate)) return false;
         if (candidate.length < 8 || candidate.length > 240) return false;
         if (!includesAny(candidate, COLLECTIBLE_KEYWORDS)) return false;
         if (includesAny(candidate, NON_COLLECTIBLE_BLOCKLIST)) return false;
@@ -729,7 +751,8 @@ async function parseTargetEmail(bodyText, connection, internalDate, rawBody) {
           product_url: enriched.product_url || bestProductLink,
           product_image: enriched.product_image || null,
           quantity,
-          order_total: eachPrice && quantity ? eachPrice * quantity : eachPrice || 0,
+          order_total:
+            eachPrice && quantity ? eachPrice * quantity : eachPrice || 0,
           source: "gmail",
           created_at: internalDate,
         };
@@ -786,7 +809,9 @@ async function parseWalmartEmail(bodyText, connection, internalDate, rawBody) {
     if (!safe) continue;
     if (!includesAny(safe, COLLECTIBLE_KEYWORDS)) continue;
 
-    const nearbyWindow = lines.slice(i, Math.min(i + 10, lines.length)).join(" ");
+    const nearbyWindow = lines
+      .slice(i, Math.min(i + 10, lines.length))
+      .join(" ");
     const nearbyQty = extractQuantity(nearbyWindow);
     const nearbyPrice = extractPrice(nearbyWindow);
 
@@ -822,8 +847,16 @@ async function parseWalmartEmail(bodyText, connection, internalDate, rawBody) {
   };
 }
 
-async function parsePokemonCenterEmail(bodyText, connection, internalDate, rawBody) {
+async function parsePokemonCenterEmail(
+  bodyText,
+  connection,
+  internalDate,
+  rawBody
+) {
   const lines = bodyText.split("\n").map(cleanCandidateLine).filter(Boolean);
+
+  console.log("PokemonCenter parser running...");
+  console.log("PokemonCenter lines preview:", lines.slice(0, 40));
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -831,20 +864,27 @@ async function parsePokemonCenterEmail(bodyText, connection, internalDate, rawBo
     if (/^qty[: ]*\d+/i.test(line)) {
       const productLine = sanitizeCandidate(lines[i - 1]);
 
-      if (!productLine) return null;
-      if (!includesAny(productLine, COLLECTIBLE_KEYWORDS)) return null;
-      if (!looksCollectibleRelated(productLine, bodyText)) return null;
+      if (!productLine) continue;
+      if (!includesAny(productLine, COLLECTIBLE_KEYWORDS)) continue;
+      if (!looksCollectibleRelated(productLine, bodyText)) continue;
 
       const qtyMatch = line.match(/qty[: ]*(\d+)/i);
       const quantity = qtyMatch ? Number(qtyMatch[1]) : 1;
 
       let unitPrice = 0;
-      for (let j = i; j < i + 5 && j < lines.length; j++) {
+      for (let j = i; j < i + 6 && j < lines.length; j++) {
         const priceMatch = lines[j].match(/price[: ]*\$ ?(\d+(?:\.\d{2})?)/i);
         if (priceMatch) {
           unitPrice = Number(priceMatch[1]);
           break;
         }
+      }
+
+      if (!unitPrice) {
+        const nearbyWindow = lines
+          .slice(Math.max(0, i - 2), Math.min(lines.length, i + 8))
+          .join(" ");
+        unitPrice = extractPrice(nearbyWindow) || 0;
       }
 
       const bestProductLink = pickBestProductLink("Pokemon Center", rawBody);
@@ -862,13 +902,51 @@ async function parsePokemonCenterEmail(bodyText, connection, internalDate, rawBo
         product_url: enriched.product_url || bestProductLink,
         product_image: enriched.product_image || null,
         quantity,
-        order_total: unitPrice && quantity ? unitPrice * quantity : unitPrice || 0,
+        order_total:
+          unitPrice && quantity ? unitPrice * quantity : unitPrice || 0,
         source: "gmail",
         created_at: internalDate,
       };
     }
   }
 
+  for (let i = 0; i < lines.length; i++) {
+    const candidate = sanitizeCandidate(lines[i]);
+    if (!candidate) continue;
+    if (!includesAny(candidate, COLLECTIBLE_KEYWORDS)) continue;
+    if (!looksCollectibleRelated(candidate, bodyText)) continue;
+
+    const nearbyWindow = lines
+      .slice(Math.max(0, i - 3), Math.min(lines.length, i + 8))
+      .join(" ");
+
+    const quantity = extractQuantity(nearbyWindow) || 1;
+    const price = extractPrice(nearbyWindow) || 0;
+
+    const bestProductLink = pickBestProductLink("Pokemon Center", rawBody);
+    const enriched = await enrichProductMeta(
+      "Pokemon Center",
+      cleanProductName(candidate),
+      bestProductLink
+    );
+
+    console.log("PokemonCenter fallback matched:", candidate);
+
+    return {
+      group_id: connection.group_id,
+      discord_user_id: connection.discord_user_id,
+      retailer: "Pokemon Center",
+      product_name: enriched.product_name || cleanProductName(candidate),
+      product_url: enriched.product_url || bestProductLink,
+      product_image: enriched.product_image || null,
+      quantity,
+      order_total: price,
+      source: "gmail",
+      created_at: internalDate,
+    };
+  }
+
+  console.log("PokemonCenter parser failed.");
   return null;
 }
 
@@ -899,19 +977,21 @@ async function parseOrderEmail(fullMessage, connection) {
   const isTestSender = senderMatchesRetailer("Test", from);
 
   if (!isTestSender && !senderMatchesRetailer(retailer, from)) {
-  console.log("Skip reason: sender mismatch");
-  return null;
-}
-
-  const isShipping = isShippingOrTrackingEmail(retailer, subject, bodyText);
-  console.log("Shipping filter result:", isShipping);
-
-  if (isShipping) {
-    console.log("Skip reason: shipping/tracking email");
+    console.log("Skip reason: sender mismatch");
     return null;
   }
 
-  if (!isInitialOrderConfirmation(retailer, subject, bodyText)) {
+  const isInitialConfirmation = isInitialOrderConfirmation(
+    retailer,
+    subject,
+    bodyText
+  );
+  const isShipping = isShippingOrTrackingEmail(retailer, subject, bodyText);
+
+  console.log("Initial confirmation result:", isInitialConfirmation);
+  console.log("Shipping filter result:", isShipping);
+
+  if (!isInitialConfirmation) {
     console.log("Skip reason: not initial order confirmation");
     return null;
   }
@@ -947,7 +1027,8 @@ async function refreshAccessTokenIfNeeded(connection) {
   try {
     const { credentials } = await oauth2Client.refreshAccessToken();
     const newAccessToken = credentials.access_token || connection.access_token;
-    const newRefreshToken = credentials.refresh_token || connection.refresh_token;
+    const newRefreshToken =
+      credentials.refresh_token || connection.refresh_token;
     const expiry = credentials.expiry_date
       ? new Date(credentials.expiry_date).toISOString()
       : connection.token_expiry;
@@ -973,6 +1054,7 @@ async function refreshAccessTokenIfNeeded(connection) {
     };
   }
 }
+
 function decodeImapBuffer(value) {
   if (!value) return "";
   if (Buffer.isBuffer(value)) return value.toString("utf8");
@@ -1037,7 +1119,9 @@ async function checkYahooEmails(connection) {
       }
 
       const searchRange =
-        lastUid > 0 ? `${lastUid + 1}:*` : `${Math.max(1, mailbox.exists - 20)}:*`;
+        lastUid > 0
+          ? `${lastUid + 1}:*`
+          : `${Math.max(1, mailbox.exists - 20)}:*`;
 
       const messages = [];
 
@@ -1063,7 +1147,10 @@ async function checkYahooEmails(connection) {
         highestUidSeen = Math.max(highestUidSeen, Number(msg.uid || 0));
 
         const yahooMessageId = `yahoo-${msg.uid}`;
-        const alreadyProcessed = await wasMessageProcessed(connection.id, yahooMessageId);
+        const alreadyProcessed = await wasMessageProcessed(
+          connection.id,
+          yahooMessageId
+        );
 
         if (alreadyProcessed) {
           continue;
@@ -1102,7 +1189,10 @@ async function checkYahooEmails(connection) {
           .eq("id", connection.id);
 
         if (uidUpdateError) {
-          console.error("Yahoo last UID update error:", uidUpdateError.message);
+          console.error(
+            "Yahoo last UID update error:",
+            uidUpdateError.message
+          );
         }
       }
     } finally {
@@ -1124,13 +1214,18 @@ async function checkEmails() {
     return;
   }
 
-  console.log(`Checking emails for ${connections?.length || 0} connected inbox(es)...`);
+  console.log(
+    `Checking emails for ${connections?.length || 0} connected inbox(es)...`
+  );
 
   for (const connection of connections || []) {
     try {
       if (connection.provider === "yahoo") {
         if (!connection.email || !connection.yahoo_app_password) {
-          console.log("Skipping Yahoo connection with missing credentials:", connection.id);
+          console.log(
+            "Skipping Yahoo connection with missing credentials:",
+            connection.id
+          );
           continue;
         }
 
