@@ -80,6 +80,10 @@ const commands = [
     .setDescription("Leave your current group"),
 
   new SlashCommandBuilder()
+    .setName("disconnect-email")
+    .setDescription("Disconnect your current Gmail or Yahoo account"),
+
+  new SlashCommandBuilder()
     .setName("set-webhook")
     .setDescription("Save the Discord webhook for your group")
     .addStringOption((option) =>
@@ -698,7 +702,7 @@ function buildHelpEmbedForGuest() {
       {
         name: "Main Commands",
         value:
-          "`/create-group`\n`/join`\n`/setup`\n`/connect-gmail`\n`/connect-yahoo`\n`/status`",
+          "`/create-group`\n`/join`\n`/setup`\n`/connect-gmail`\n`/connect-yahoo`\n`/status`\n`/disconnect-email`",
         inline: false,
       },
     ],
@@ -713,7 +717,7 @@ function buildHelpEmbedForMember() {
       {
         name: "Setup",
         value:
-          "`/setup` — full setup check\n`/connect-gmail` — connect Gmail\n`/connect-yahoo` — connect Yahoo\n`/status` — see your email status\n`/leave-group` — leave your current group",
+          "`/setup` — full setup check\n`/connect-gmail` — connect Gmail\n`/connect-yahoo` — connect Yahoo\n`/status` — see your email status\n`/disconnect-email` — remove your email connection\n`/leave-group` — leave your current group",
         inline: false,
       },
       {
@@ -740,7 +744,7 @@ function buildHelpEmbedForOwner() {
       {
         name: "Setup",
         value:
-          "`/setup` — full setup check\n`/set-webhook url:...` — connect your Discord webhook\n`/connect-gmail` — connect Gmail\n`/connect-yahoo` — connect Yahoo\n`/status` — check email status",
+          "`/setup` — full setup check\n`/set-webhook url:...` — connect your Discord webhook\n`/connect-gmail` — connect Gmail\n`/connect-yahoo` — connect Yahoo\n`/status` — check email status\n`/disconnect-email` — remove your email connection",
         inline: false,
       },
       {
@@ -1279,6 +1283,82 @@ client.on("interactionCreate", async (interaction) => {
       console.error(err);
       return interaction.editReply({
         embeds: [buildErrorEmbed("Error leaving group.")],
+      });
+    }
+  }
+
+  if (interaction.commandName === "disconnect-email") {
+    await interaction.deferReply({ ephemeral: true });
+
+    const discordUserId = interaction.user.id;
+
+    try {
+      const { data: membership, error: membershipError } =
+        await getMembershipByDiscordUserId(discordUserId);
+
+      if (membershipError) {
+        console.error(membershipError);
+        return interaction.editReply({
+          embeds: [buildErrorEmbed("Failed to find your membership.")],
+        });
+      }
+
+      if (!membership) {
+        return interaction.editReply({
+          embeds: [buildErrorEmbed("You are not in a group.")],
+        });
+      }
+
+      const { data: connection, error: connectionError } = await supabase
+        .from("gmail_connections")
+        .select("*")
+        .eq("discord_user_id", discordUserId)
+        .maybeSingle();
+
+      if (connectionError) {
+        console.error(connectionError);
+        return interaction.editReply({
+          embeds: [buildErrorEmbed("Failed to load your email connection.")],
+        });
+      }
+
+      if (!connection) {
+        return interaction.editReply({
+          embeds: [buildErrorEmbed("No connected email account was found.")],
+        });
+      }
+
+      const providerLabel = connection.provider
+        ? connection.provider.charAt(0).toUpperCase() +
+          connection.provider.slice(1)
+        : "Email";
+
+      const connectedAddress = connection.email || connection.google_email;
+
+      const { error: deleteError } = await supabase
+        .from("gmail_connections")
+        .delete()
+        .eq("discord_user_id", discordUserId);
+
+      if (deleteError) {
+        console.error(deleteError);
+        return interaction.editReply({
+          embeds: [buildErrorEmbed("Failed to disconnect your email account.")],
+        });
+      }
+
+      return interaction.editReply({
+        embeds: [
+          buildSuccessEmbed(
+            "Email Disconnected",
+            `${providerLabel} connection removed for **${connectedAddress}**.`
+          ),
+        ],
+      });
+    } catch (err) {
+      console.error(err);
+      return interaction.editReply({
+        embeds: [buildErrorEmbed("Failed to disconnect email.")],
       });
     }
   }
