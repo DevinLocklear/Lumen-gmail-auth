@@ -172,11 +172,17 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 async function registerCommands() {
   try {
     log.info("Registering commands...");
-    await rest.put(Routes.applicationCommands(process.env.APPLICATION_ID), { body: [] });
-    await rest.put(Routes.applicationCommands(process.env.APPLICATION_ID), { body: commands });
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Command registration timed out after 15s")), 15000)
+    );
+    await Promise.race([
+      rest.put(Routes.applicationCommands(process.env.APPLICATION_ID), { body: commands }),
+      timeout,
+    ]);
     log.info("Commands registered.");
   } catch (err) {
-    log.error("Command registration failed", err);
+    log.error("Command registration failed — continuing anyway", err);
+    // Non-fatal — bot continues with previously registered commands
   }
 }
 
@@ -972,6 +978,6 @@ client.on("interactionCreate", async (interaction) => {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 (async () => {
-  await registerCommands();
   await client.login(process.env.DISCORD_TOKEN);
+  await registerCommands();
 })();
