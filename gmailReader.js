@@ -10,6 +10,7 @@ const { ImapFlow } = require("imapflow");
 // ── Internal modules ──────────────────────────────────────────────────────────
 const { supabase, oauth2Client, ENABLE_TEST_SENDERS } = require("./src/config");
 const { createLogger } = require("./src/logger");
+const { decrypt, isEncrypted } = require("./src/crypto");
 const { getActiveConnections, updateTokens, updateYahooLastUid } = require("./src/db/connections");
 const { getGroupWebhook } = require("./src/db/groups");
 const { insertCheckoutEvent, getGroupSpendLast30Days } = require("./src/db/events");
@@ -836,7 +837,9 @@ async function checkYahooEmails(connection) {
     secure: true,
     auth: {
       user: connection.email,
-      pass: connection.yahoo_app_password,
+      pass: isEncrypted(connection.yahoo_app_password)
+        ? decrypt(connection.yahoo_app_password)
+        : connection.yahoo_app_password, // legacy plaintext — still works during migration
     },
     logger: false,
     // Fail fast — don't hang the poll cycle waiting on a dead connection
