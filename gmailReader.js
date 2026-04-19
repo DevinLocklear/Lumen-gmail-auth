@@ -744,7 +744,7 @@ async function buildCheckoutEmbed(event) {
     ],
     footer: {
       text: `HUMN • v1.0 • ${formatDateTime(new Date())}`,
-      icon_url: "https://cdn-icons-png.flaticon.com/512/4712/4712027.png",
+      icon_url: "https://i.imgur.com/ywgtHOK.png",
     },
     ...(event.product_image ? { thumbnail: { url: event.product_image } } : {}),
   };

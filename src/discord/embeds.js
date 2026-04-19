@@ -9,7 +9,7 @@
 const { EmbedBuilder } = require("discord.js");
 const { formatMoney, formatDateTime, shortenText } = require("../analytics/render");
 
-const HUMN_ICON = "https://cdn-icons-png.flaticon.com/512/4712/4712027.png";
+const HUMN_ICON = "https://i.imgur.com/ywgtHOK.png";
 
 function normalizeRetailerName(retailer) {
   const value = String(retailer || "").trim().toLowerCase();
