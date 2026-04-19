@@ -1,7 +1,7 @@
 {
-  "name": "lumen",
-  "version": "1.0.0",
-  "description": "Lumen bot + Gmail auth",
+  "name": "HUMN",
+  "version": "1.0.0-beta",
+  "description": "HUMN — Discord checkout tracking for collectible communities",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"

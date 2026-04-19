@@ -11,6 +11,7 @@ const { ImapFlow } = require("imapflow");
 const { supabase, oauth2Client, ENABLE_TEST_SENDERS } = require("./src/config");
 const { createLogger } = require("./src/logger");
 const { decrypt, isEncrypted } = require("./src/crypto");
+const notify = require("./src/discord/notify");
 const { getActiveConnections, updateTokens, updateYahooLastUid } = require("./src/db/connections");
 const { getGroupWebhook } = require("./src/db/groups");
 const { insertCheckoutEvent, getGroupSpendLast30Days } = require("./src/db/events");
@@ -696,6 +697,8 @@ async function refreshAccessTokenIfNeeded(connection) {
     return { access_token: newAccessToken, refresh_token: newRefreshToken };
   } catch (err) {
     log.error("Token refresh failed", { connectionId: connection.id, error: err.message });
+    // Notify the user their Gmail connection needs to be re-authorized
+    await notify.sendGmailDisconnected(connection);
     return { access_token: connection.access_token, refresh_token: connection.refresh_token };
   }
 }
@@ -881,6 +884,7 @@ async function checkYahooEmails(connection) {
         email: connection.email,
         connectionId: connection.id,
       });
+      await notify.sendYahooDisconnected(connection);
     }
 
     return;

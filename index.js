@@ -20,6 +20,7 @@ const { getFilteredEvents, getGroupSpendLast30Days, insertCheckoutEvent } = requ
 const { normalizeRetailerName, sumOrderTotals, averageOrderValue, buildRetailerBreakdown, buildTopProducts, buildDailyTrend, buildWeekdayBreakdown, computeUserRankAndSpend } = require("./src/analytics/compute");
 const { formatMoney, formatDateTime, shortenText, formatRangeLabel, renderStatsDashboard, renderTrendDashboard } = require("./src/analytics/render");
 const { buildSuccessEmbed, buildErrorEmbed, buildAnalyticsEmbed, buildCheckoutEmbed, buildHelpEmbedForGuest, buildHelpEmbedForMember, buildHelpEmbedForOwner } = require("./src/discord/embeds");
+const notify = require("./src/discord/notify");
 
 const log = createLogger("bot");
 
@@ -161,6 +162,7 @@ async function registerCommands() {
 
 client.once("clientReady", () => {
   log.info(`Logged in as ${client.user.tag}`);
+  notify.setClient(client);
 });
 
 client.on("interactionCreate", async (interaction) => {
