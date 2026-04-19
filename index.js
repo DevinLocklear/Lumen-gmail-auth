@@ -6,9 +6,7 @@ require("./server");
 const {
   Client,
   GatewayIntentBits,
-  REST,
-  Routes,
-  SlashCommandBuilder,
+  EmbedBuilder,
 } = require("discord.js");
 
 const { supabase, GMAIL_AUTH_BASE_URL, ENABLE_TEST_EVENT } = require("./src/config");
@@ -169,22 +167,7 @@ const commands = [
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
-async function registerCommands() {
-  try {
-    log.info("Registering commands...");
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Command registration timed out after 15s")), 15000)
-    );
-    await Promise.race([
-      rest.put(Routes.applicationCommands(process.env.APPLICATION_ID), { body: commands }),
-      timeout,
-    ]);
-    log.info("Commands registered.");
-  } catch (err) {
-    log.error("Command registration failed — continuing anyway", err);
-    // Non-fatal — bot continues with previously registered commands
-  }
-}
+// Commands are registered via: node register-commands.js
 
 // ── Interaction handler ───────────────────────────────────────────────────────
 
@@ -979,5 +962,4 @@ client.on("interactionCreate", async (interaction) => {
 
 (async () => {
   await client.login(process.env.DISCORD_TOKEN);
-  await registerCommands();
 })();
