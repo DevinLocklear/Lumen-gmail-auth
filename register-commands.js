@@ -77,6 +77,9 @@ const commands = [
     .addUserOption((o) => o.setName("user").setDescription("Group owner Discord user").setRequired(true)),
 ].map((c) => c.toJSON());
 
+console.log("TOKEN present:", Boolean(process.env.DISCORD_TOKEN));
+console.log("TOKEN length:", process.env.DISCORD_TOKEN?.length || 0);
+console.log("APP ID:", process.env.APPLICATION_ID);
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
