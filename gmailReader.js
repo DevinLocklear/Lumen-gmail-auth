@@ -839,9 +839,45 @@ async function checkYahooEmails(connection) {
       pass: connection.yahoo_app_password,
     },
     logger: false,
+    // Fail fast — don't hang the poll cycle waiting on a dead connection
+    socketTimeout: 15000,
+    connectionTimeout: 15000,
   });
 
-  await client.connect();
+  try {
+    await client.connect();
+  } catch (err) {
+    // Auth failures and connection errors surface here
+    const isAuthError =
+      err.message?.toLowerCase().includes("auth") ||
+      err.message?.toLowerCase().includes("invalid") ||
+      err.message?.toLowerCase().includes("credentials") ||
+      err.responseCode === "AUTHENTICATIONFAILED";
+
+    log.error("Yahoo IMAP connect failed", {
+      email: connection.email,
+      connectionId: connection.id,
+      error: err.message,
+      hint: isAuthError
+        ? "App password is likely expired or revoked — user should run /save-yahoo again"
+        : "Network or server error",
+    });
+
+    // Mark as disconnected in Supabase so we stop retrying bad credentials every 30s
+    if (isAuthError) {
+      const { supabase } = require("./src/config");
+      await supabase
+        .from("gmail_connections")
+        .update({ status: "disconnected" })
+        .eq("id", connection.id);
+      log.warn("Yahoo connection marked disconnected due to auth failure", {
+        email: connection.email,
+        connectionId: connection.id,
+      });
+    }
+
+    return;
+  }
 
   try {
     const lock = await client.getMailboxLock("INBOX");
@@ -910,11 +946,20 @@ async function checkYahooEmails(connection) {
       if (highestUidSeen > lastUid) {
         await updateYahooLastUid(connection.id, highestUidSeen);
       }
+    } catch (cmdErr) {
+      // IMAP command-level errors (mailbox open, fetch, etc.)
+      log.error("Yahoo IMAP command failed", {
+        email: connection.email,
+        connectionId: connection.id,
+        error: cmdErr.message,
+        responseCode: cmdErr.responseCode || null,
+        hint: "Check IMAP is enabled in Yahoo settings and app password is valid",
+      });
     } finally {
       lock.release();
     }
   } finally {
-    await client.logout();
+    try { await client.logout(); } catch { /* ignore logout errors */ }
   }
 }
 
