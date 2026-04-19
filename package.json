@@ -4,7 +4,8 @@
   "description": "HUMN — Discord checkout tracking for collectible communities",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "register": "node register-commands.js"
   },
   "type": "commonjs",
   "dependencies": {
@@ -17,6 +18,6 @@
     "express": "^5.1.0",
     "googleapis": "^171.0.0",
     "imapflow": "^1.3.1",
-    "stripe": "^22.0.2"
+    "stripe": "^17.7.0"
   }
 }
