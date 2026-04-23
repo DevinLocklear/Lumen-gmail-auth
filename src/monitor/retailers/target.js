@@ -8,15 +8,36 @@
 const { createLogger } = require("../../logger");
 const { proxyFetch } = require("../fetch");
 
+// Webshare rotating residential proxy — port 80, works on Railway
+function getWebshareProxy() {
+  return {
+    host: process.env.PROXY_HOST || "p.webshare.io",
+    port: parseInt(process.env.PROXY_PORT || "80"),
+    user: process.env.PROXY_USER || "xnqyxvyg-GB-1",
+    pass: process.env.PROXY_PASS || "j2prfly8xpvf",
+  };
+}
+
 const log = createLogger("monitor:target");
 
-const HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-  "Accept": "application/json",
-  "Accept-Language": "en-US,en;q=0.9",
-  "Referer": "https://www.target.com/",
-  "Host": "redsky.target.com",
-};
+const USER_AGENTS = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+];
+
+function getHeaders() {
+  const ua = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+  return {
+    "User-Agent": ua,
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.target.com/",
+    "Host": "redsky.target.com",
+  };
+}
 
 async function checkProduct(product) {
   try {
@@ -33,7 +54,7 @@ async function checkProduct(product) {
 async function checkByTcin(tcin) {
   const url = `https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1?key=9f36aeafbe60771e321a7cc95a78140772ab3e96&tcins=${tcin}&store_id=911&zip=55413&state=MN&latitude=44.9934&longitude=-93.2774&visitor_id=01800CC62F6C0201AF2C0E6116E9A0EF&channel=WEB`;
 
-  const result = await proxyFetch(url, { headers: HEADERS, timeout: 20000 }, null);
+  const result = await proxyFetch(url, { headers: getHeaders(), timeout: 20000 }, getWebshareProxy());
 
   if (result.status !== 200) {
     log.warn("Target inventory API non-OK", { status: result.status, tcin });
@@ -98,7 +119,7 @@ async function searchByKeyword(keyword) {
     const result = await proxyFetch(url, {
       headers: { ...HEADERS },
       timeout: 20000,
-    }, null);
+    }, getWebshareProxy());
 
     if (result.status !== 200) return { status: "UNKNOWN" };
 
