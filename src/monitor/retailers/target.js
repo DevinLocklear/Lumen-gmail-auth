@@ -29,21 +29,24 @@ async function checkProduct(product) {
 
 async function tryEndpoints(tcin) {
   const endpoints = [
-    // Endpoint 1: v3 pdp (simplest, most stable)
+    // Endpoint 1: v3 pdp
     {
       url: `https://redsky.target.com/v3/pdp/tcin/${tcin}?key=9f36aeafbe60771e321a7cc95a78140772ab3e96&excludes=taxonomy,promotion,bulk_ship,rating_and_review_reviews,rating_and_review_statistics,question_answer_statistics`,
       host: "redsky.target.com",
+      name: "v3-pdp",
     },
-    // Endpoint 2: product details v4
+    // Endpoint 2: inventory API
     {
-      url: `https://redsky.target.com/v4/product/detail?key=9f36aeafbe60771e321a7cc95a78140772ab3e96&tcin=${tcin}&store_id=911`,
+      url: `https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1?key=9f36aeafbe60771e321a7cc95a78140772ab3e96&tcins=${tcin}&store_id=911&zip=55413&state=MN&latitude=44.9934&longitude=-93.2774&visitor_id=01800CC62F6C0201AF2C0E6116E9A0EF&channel=WEB`,
       host: "redsky.target.com",
+      name: "inventory",
     },
-    // Endpoint 3: Target's public product page (scrape JSON-LD)
+    // Endpoint 3: product page scrape
     {
-      url: `https://www.target.com/p/A-${tcin}`,
+      url: `https://www.target.com/p/-/A-${tcin}`,
       host: "www.target.com",
       scrape: true,
+      name: "page",
     },
   ];
 
@@ -60,7 +63,7 @@ async function tryEndpoints(tcin) {
         timeout: 20000,
       }, null);
 
-      log.info("Target endpoint tried", { url: endpoint.url.slice(0, 80), status: result.status });
+      log.info("Target endpoint tried", { name: endpoint.name, status: result.status, body: result.body.slice(0, 150) });
 
       if (result.status !== 200) continue;
 
