@@ -88,6 +88,7 @@ async function checkProduct(product) {
         price: result.price,
         stockCount: result.stockCount,
         cartLimit: result.cartLimit,
+        imageUrl: result.imageUrl || null,
       });
     }
   } catch (err) {

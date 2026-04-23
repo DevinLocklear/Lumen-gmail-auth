@@ -55,7 +55,7 @@ function getOpenInAppUrl(retailer, identifier) {
   return null;
 }
 
-async function sendRestockAlert({ webhookUrl, product, status, previousStatus, price, stockCount, cartLimit }) {
+async function sendRestockAlert({ webhookUrl, product, status, previousStatus, price, stockCount, cartLimit, imageUrl }) {
   const retailerKey = getRetailerKey(product.retailer);
   const color = RETAILER_COLORS[retailerKey] || 0xc45aff;
 
@@ -144,7 +144,7 @@ async function sendRestockAlert({ webhookUrl, product, status, previousStatus, p
     url: productUrl || undefined,
     color,
     fields,
-    thumbnail: { url: HUMN_ICON },
+    thumbnail: { url: imageUrl || HUMN_ICON },
     footer: {
       text: `HUMN Monitor v1.0 | [${timeStr}]`,
       icon_url: HUMN_ICON,

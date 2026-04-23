@@ -95,9 +95,15 @@ async function checkByTcin(tcin) {
   const stockCount = shipping?.available_to_promise_quantity || null;
   const cartLimit = shipping?.purchase_limit || null;
 
+  // Extract product image
+  const images = pd?.item?.enrichment?.images || pd?.item?.product_description?.images;
+  const imageUrl = images?.primary_image_url
+    || images?.[0]?.base_url + images?.[0]?.primary + ".jpg"
+    || null;
+
   log.info("Target product checked", { tcin, status, price, productName: productName?.slice(0, 50) });
 
-  return { status, price, stockCount, cartLimit, productName, productUrl };
+  return { status, price, stockCount, cartLimit, productName, productUrl, imageUrl };
 }
 
 async function searchByKeyword(keyword) {
