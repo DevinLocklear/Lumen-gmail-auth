@@ -318,6 +318,16 @@ app.post("/stripe/webhook", async (req, res) => {
 
 app.listen(PORT, () => {
   log.info(`HUMN Gmail Auth running on port ${PORT}`);
+
+// Start monitor if enabled
+if (process.env.ENABLE_MONITOR !== 'false') {
+  try {
+    const { startMonitor } = require('./src/monitor');
+    startMonitor();
+  } catch (err) {
+    log.warn('Monitor failed to start: ' + err.message);
+  }
+}
 });
 
 // ── Email polling loop ────────────────────────────────────────────────────────
