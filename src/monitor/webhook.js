@@ -162,8 +162,6 @@ async function sendRestockAlert({ webhookUrl, product, status, previousStatus, p
   }[retailerKey] || `${product.retailer} Restocks`;
 
   const payload = {
-    username: retailerLabel,
-    avatar_url: HUMN_ICON,
     embeds: [embed],
   };
 
