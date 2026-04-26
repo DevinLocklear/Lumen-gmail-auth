@@ -2,7 +2,7 @@
 
 /**
  * src/monitor/retailers/target.js
- * Monitors Target using their guest API endpoints.
+ * Monitors Target using the inventory API (confirmed working).
  */
 
 const { createLogger } = require("../../logger");
@@ -30,12 +30,15 @@ function ua() {
 }
 
 async function fetchWithFallback(url, headers, timeout = 12000) {
-  // Try with proxy first
-  let result = await proxyFetch(url, { headers, timeout }, getProxy());
+  // Try direct first
+  let result = await proxyFetch(url, { headers, timeout }, null);
   if (result && result.status === 200) return result;
 
-  // Fallback to direct
-  result = await proxyFetch(url, { headers, timeout }, null);
+  // Use proxy if blocked
+  if (result && (result.status === 403 || result.status === 429 || result.status === 502)) {
+    result = await proxyFetch(url, { headers, timeout }, getProxy());
+  }
+
   return result;
 }
 
@@ -52,111 +55,58 @@ async function checkProduct(product) {
 }
 
 async function checkByTcin(tcin) {
-  // Target's guest API — returns full product data including availability
-  const url = `https://api.target.com/products/v3/${tcin}?fields=available_to_promise_network,item,price,promotion,available_to_promise_stores,inventory&key=ff457966e64d5e877fdbad070f276d18ecec4a01`;
+  // Inventory endpoint — confirmed working
+  const url = `https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1?key=ff457966e64d5e877fdbad070f276d18ecec4a01&tcins=${tcin}&store_id=911&zip=55413&state=MN&latitude=44.9934&longitude=-93.2774&visitor_id=01800CC62F6C0201AF2C0E6116E9A0EF&channel=WEB`;
 
   const headers = {
     "User-Agent": ua(),
     "Accept": "application/json",
     "Accept-Language": "en-US,en;q=0.9",
     "Referer": "https://www.target.com/",
-    "Host": "api.target.com",
-    "Origin": "https://www.target.com",
-  };
-
-  const result = await fetchWithFallback(url, headers);
-
-  if (!result || result.status === 410) {
-    // 410 = product temporarily pulled — keep watching, don't alert
-    log.info("Target product temporarily unavailable (410)", { tcin });
-    return { status: "OUT_OF_STOCK" };
-  }
-
-  if (!result || result.status !== 200) {
-    return await checkByTcinV2(tcin);
-  }
-
-  try {
-    const data = JSON.parse(result.body);
-    const product = data?.data?.product || data?.product;
-    if (!product) return await checkByTcinV2(tcin);
-
-    const avail = product?.available_to_promise_network?.availability ||
-      product?.availability_status || "OUT_OF_STOCK";
-
-    const inStock = avail === "IN_STOCK" || avail === "AVAILABLE";
-    const isLaunch = avail === "READY_FOR_LAUNCH";
-
-    const price = product?.price?.current_retail || null;
-    const productName = product?.item?.product_description?.title || null;
-    const productUrl = `https://www.target.com/p/A-${tcin}`;
-
-    log.info("Target product checked", { tcin, status: inStock ? "IN_STOCK" : isLaunch ? "READY_FOR_LAUNCH" : "OUT_OF_STOCK", productName: productName?.slice(0, 50) });
-
-    return {
-      status: inStock ? "IN_STOCK" : isLaunch ? "READY_FOR_LAUNCH" : "OUT_OF_STOCK",
-      price,
-      productName,
-      productUrl,
-    };
-  } catch (err) {
-    return await checkByTcinV2(tcin);
-  }
-}
-
-async function checkByTcinV2(tcin) {
-  // Alternate: Target's fulfillment API
-  const url = `https://redsky.target.com/v3/pdp/tcin/${tcin}?excludes=taxonomy,promotion,bulk_ship,rating_and_review_reviews,rating_and_review_statistics,question_answer_statistics&key=ff457966e64d5e877fdbad070f276d18ecec4a01`;
-
-  const headers = {
-    "User-Agent": ua(),
-    "Accept": "application/json",
-    "Referer": "https://www.target.com/",
     "Host": "redsky.target.com",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-site",
   };
 
   const result = await fetchWithFallback(url, headers);
+
   if (result?.status === 410) {
-    // Product temporarily pulled from Target — keep watching
     log.info("Target product temporarily unavailable (410)", { tcin });
     return { status: "OUT_OF_STOCK" };
   }
 
   if (!result || result.status !== 200) {
-    log.warn("Target v2 API non-OK", { status: result?.status, tcin });
+    log.warn("Target inventory API non-OK", { status: result?.status, tcin });
     return { status: "UNKNOWN" };
   }
 
   try {
     const data = JSON.parse(result.body);
-    const product = data?.data?.product;
-    if (!product) return { status: "UNKNOWN" };
+    const pd = data?.data?.product_summaries?.[0];
+    if (!pd) return { status: "UNKNOWN" };
 
-    const avail = product?.availability?.availability_status || "OUT_OF_STOCK";
-    const inStock = avail === "IN_STOCK";
-    const isLaunch = avail === "READY_FOR_LAUNCH";
+    const shipping = pd?.fulfillment?.shipping_options;
+    const availability = pd?.availability;
+    const shipStatus = shipping?.availability_status;
+    const availState = availability?.availability_status || availability?.state;
 
-    const price = product?.price?.current_retail || null;
-    const productName = product?.item?.product_description?.title || null;
+    let status = "OUT_OF_STOCK";
+    if (shipStatus === "IN_STOCK" || availState === "IN_STOCK") status = "IN_STOCK";
+    else if (shipStatus === "READY_FOR_LAUNCH" || availState === "READY_FOR_LAUNCH") status = "READY_FOR_LAUNCH";
+
+    const price = pd?.price?.current_retail || null;
+    const productName = pd?.item?.product_description?.title || null;
     const productUrl = `https://www.target.com/p/A-${tcin}`;
+    const stockCount = shipping?.available_to_promise_quantity || null;
+    const cartLimit = shipping?.purchase_limit || null;
+    const images = pd?.item?.enrichment?.images;
+    const imageUrl = images?.primary_image_url || null;
 
-    // Filter 3rd party
-    const sellerName = product?.item?.seller?.display_name || "";
-    if (sellerName && sellerName.toLowerCase() !== "target") {
-      log.info("Skipping 3rd party", { tcin, seller: sellerName });
-      return { status: "UNKNOWN" };
-    }
+    log.info("Target product checked", { tcin, status, productName: productName?.slice(0, 50) });
 
-    log.info("Target product checked (v2)", { tcin, status: inStock ? "IN_STOCK" : isLaunch ? "READY_FOR_LAUNCH" : "OUT_OF_STOCK" });
-
-    return {
-      status: inStock ? "IN_STOCK" : isLaunch ? "READY_FOR_LAUNCH" : "OUT_OF_STOCK",
-      price,
-      productName,
-      productUrl,
-    };
+    return { status, price, stockCount, cartLimit, productName, productUrl, imageUrl };
   } catch (err) {
-    log.error("Target v2 parse failed", { tcin, error: err.message });
+    log.error("Target parse failed", { tcin, error: err.message });
     return { status: "UNKNOWN" };
   }
 }
