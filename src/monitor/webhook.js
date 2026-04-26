@@ -50,6 +50,13 @@ function getCartUrl(retailer, productUrl, identifier) {
   return productUrl || "#";
 }
 
+function getAppUrl(retailer, identifier, productUrl) {
+  const key = getRetailerKey(retailer);
+  if (key === "target") return `https://www.target.com/p/A-${identifier}`;
+  if (key === "walmart") return `https://www.walmart.com/ip/${identifier}`;
+  return productUrl || null;
+}
+
 function getLoginUrl(retailer) {
   const key = getRetailerKey(retailer);
   if (key === "target") return "https://www.target.com/account";
@@ -92,10 +99,11 @@ async function sendRestockAlert({ webhookUrl, product, status, previousStatus, p
 
   // Build links line
   const loginUrl = getLoginUrl(product.retailer);
+  const appDeepUrl = getAppUrl(product.retailer, identifier, productUrl);
   const links = [];
-  if (cartUrl) links.push(`[🛒 Cart](${cartUrl})`);
+  if (cartUrl) links.push(`[🛒 Web Cart](${cartUrl})`);
+  if (appDeepUrl) links.push(`[📱 App](${appDeepUrl})`);
   if (loginUrl) links.push(`[🔑 Login](${loginUrl})`);
-  if (appUrl) links.push(`[📱 Open in App](${appUrl})`);
   links.push(`[eBay](${ebayUrl})`);
   links.push(`[eBay Sales](${ebaySalesUrl})`);
 
