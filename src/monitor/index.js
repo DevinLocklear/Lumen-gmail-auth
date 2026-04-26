@@ -157,8 +157,8 @@ function startMonitor() {
   // Initial poll after 10 seconds
   setTimeout(pollCycle, 10000);
 
-  // Then poll every 60 seconds
-  pollTimer = setInterval(pollCycle, 60 * 1000);
+  // Then poll every 30 seconds
+  pollTimer = setInterval(pollCycle, 30 * 1000);
 
   log.info("HUMN Monitor running — polling every 60 seconds");
 }
