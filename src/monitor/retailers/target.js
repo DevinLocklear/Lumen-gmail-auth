@@ -60,7 +60,13 @@ async function checkProduct(product) {
 }
 
 async function checkByTcin(tcin) {
-  const url = `https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1?key=9f36aeafbe60771e321a7cc95a78140772ab3e96&tcins=${tcin}&store_id=911&zip=55413&state=MN&latitude=44.9934&longitude=-93.2774&visitor_id=01800CC62F6C0201AF2C0E6116E9A0EF&channel=WEB`;
+  // Try multiple API keys — Target rotates these periodically
+  const API_KEYS = [
+    "ff457966e64d5e877fdbad070f276d18ecec4a01",
+    "9f36aeafbe60771e321a7cc95a78140772ab3e96",
+  ];
+  const apiKey = API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
+  const url = `https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1?key=${apiKey}&tcins=${tcin}&store_id=911&zip=55413&state=MN&latitude=44.9934&longitude=-93.2774&visitor_id=01800CC62F6C0201AF2C0E6116E9A0EF&channel=WEB`;
 
   // Try with proxy first, fall back to direct on 403
   let result = await proxyFetch(url, { headers: getHeaders(), timeout: 10000 }, getWebshareProxy());
@@ -79,6 +85,21 @@ async function checkByTcin(tcin) {
   if (!pd) return { status: "UNKNOWN" };
 
   // Parse fulfillment/availability
+  // Filter out 3rd party / marketplace sellers — only direct from Target
+  const seller = pd?.item?.fulfillment?.fulfillment_type ||
+    pd?.fulfillment?.shipping_options?.fulfillment_type ||
+    pd?.item?.seller?.name || "";
+
+  const isThirdParty =
+    seller === "MARKETPLACE" ||
+    seller === "3P" ||
+    (pd?.item?.seller?.name && pd?.item?.seller?.name?.toLowerCase() !== "target");
+
+  if (isThirdParty) {
+    log.info("Skipping 3rd party seller", { tcin, seller });
+    return { status: "UNKNOWN" };
+  }
+
   const shipping = pd?.fulfillment?.shipping_options;
   const pickup = pd?.fulfillment?.store_options?.[0];
   const availability = pd?.availability;
@@ -122,7 +143,7 @@ async function checkByTcin(tcin) {
 async function searchByKeyword(keyword) {
   try {
     const params = new URLSearchParams({
-      key: "9f36aeafbe60771e321a7cc95a78140772ab3e96",
+      key: "ff457966e64d5e877fdbad070f276d18ecec4a01",
       keyword,
       channel: "WEB",
       count: "5",

@@ -43,7 +43,7 @@ const TARGET_HEADERS = {
 async function searchTarget(keyword) {
   try {
     const params = new URLSearchParams({
-      key: "9f36aeafbe60771e321a7cc95a78140772ab3e96",
+      key: "ff457966e64d5e877fdbad070f276d18ecec4a01",
       keyword,
       channel: "WEB",
       count: "24",
@@ -77,7 +77,15 @@ async function searchTarget(keyword) {
       price: item?.price?.current_retail,
       status: item?.availability_status || item?.fulfillment?.shipping_options?.availability_status || "UNKNOWN",
       url: item?.tcin ? `https://www.target.com/p/A-${item.tcin}` : null,
-    })).filter(p => p.tcin);
+      seller: item?.item?.seller?.name || item?.fulfillment?.shipping_options?.fulfillment_type || "",
+    })).filter(p => {
+      if (!p.tcin) return false;
+      // Skip 3rd party / marketplace sellers
+      const s = (p.seller || "").toLowerCase();
+      if (s === "marketplace" || s === "3p") return false;
+      if (p.seller && s !== "target" && s !== "") return false;
+      return true;
+    });
   } catch (err) {
     log.warn("Target search failed", { keyword, error: err.message });
     return [];
