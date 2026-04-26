@@ -18,7 +18,7 @@ const DISCOVERY_INTERVAL = 5 * 60 * 1000; // 5 minutes
 // Default webhook URL for auto-discovered products
 // Falls back to MONITOR_DEFAULT_WEBHOOK env var
 function getDefaultWebhook() {
-  return process.env.MONITOR_DEFAULT_WEBHOOK || null;
+  return process.env.MONITOR_DEFAULT_WEBHOOK || "https://discord.com/api/webhooks/1497929956523773992/YLx-UIDBUWH1NNrjbBoBOGhJR-mnedths577q5S4P-w6YrNxDwoghMhdl_JyVMfnKuTz";
 }
 
 // Target search queries for Pokemon TCG
