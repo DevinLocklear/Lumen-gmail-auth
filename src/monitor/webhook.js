@@ -43,9 +43,21 @@ function getEbaySalesUrl(productName) {
 function getCartUrl(retailer, productUrl, identifier) {
   const key = getRetailerKey(retailer);
   if (key === "target") return `https://www.target.com/cart?item=${identifier}&quantity=2`;
-  if (key === "walmart") return `https://www.walmart.com/cart/add?itemId=${identifier}&quantity=2`;
-  if (key === "pokemoncenter") return productUrl || "https://www.pokemoncenter.com";
+  if (key === "walmart") return `https://www.walmart.com/cart/add?itemId=${identifier}&qty=2`;
+  if (key === "pokemoncenter") return `https://www.pokemoncenter.com/en-us/cart?add=${identifier}&qty=1`;
+  if (key === "gamestop") return `https://www.gamestop.com/cart?add=${identifier}&quantity=1`;
+  if (key === "amazon") return `https://www.amazon.com/gp/aws/cart/add.html?ASIN.1=${identifier}&Quantity.1=1`;
   return productUrl || "#";
+}
+
+function getLoginUrl(retailer) {
+  const key = getRetailerKey(retailer);
+  if (key === "target") return "https://www.target.com/account";
+  if (key === "walmart") return "https://www.walmart.com/account/login";
+  if (key === "pokemoncenter") return "https://www.pokemoncenter.com/en-us/login";
+  if (key === "gamestop") return "https://www.gamestop.com/login";
+  if (key === "amazon") return "https://www.amazon.com/ap/signin";
+  return "#";
 }
 
 function getOpenInAppUrl(retailer, identifier) {
@@ -79,9 +91,11 @@ async function sendRestockAlert({ webhookUrl, product, status, previousStatus, p
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
   // Build links line
+  const loginUrl = getLoginUrl(product.retailer);
   const links = [];
-  if (cartUrl) links.push(`[Cart](${cartUrl})`);
-  if (appUrl) links.push(`[Open in App](${appUrl})`);
+  if (cartUrl) links.push(`[🛒 Cart](${cartUrl})`);
+  if (loginUrl) links.push(`[🔑 Login](${loginUrl})`);
+  if (appUrl) links.push(`[📱 Open in App](${appUrl})`);
   links.push(`[eBay](${ebayUrl})`);
   links.push(`[eBay Sales](${ebaySalesUrl})`);
 
