@@ -97,9 +97,15 @@ async function checkByTcin(tcin) {
     const productUrl = `https://www.target.com/p/A-${tcin}`;
     const stockCount = shipping?.available_to_promise_quantity || null;
     const cartLimit = shipping?.purchase_limit || null;
-    // Target CDN image with format params for Discord compatibility
-    const imageUrl = `https://target.scene7.com/is/image/Target/GUEST_${tcin}?fmt=pjpeg&hei=400&wid=400`;
+    // Extract image from product description images array
+    const productImages = pd?.item?.product_description?.images;
+    const imageBase = productImages?.base_url;
+    const imagePrimary = productImages?.primary;
+    const imageUrl = (imageBase && imagePrimary)
+      ? `${imageBase}${imagePrimary}?wid=400&hei=400&fmt=pjpeg`
+      : null;
 
+    log.info("Target image debug2", { tcin, imageUrl, productImages: JSON.stringify(productImages)?.slice(0, 200) });
     log.info("Target product checked", { tcin, status, productName: productName?.slice(0, 50), imageUrl, price });
 
     return { status, price, stockCount, cartLimit, productName, productUrl, imageUrl };
