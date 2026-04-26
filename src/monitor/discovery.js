@@ -60,7 +60,7 @@ async function searchTarget(keyword) {
 
     const result = await proxyFetch(url, {
       headers: TARGET_HEADERS,
-      timeout: 20000,
+      timeout: 10000,
     }, proxy);
 
     if (result.status !== 200) {
