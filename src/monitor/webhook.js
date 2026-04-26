@@ -18,14 +18,6 @@ const RETAILER_COLORS = {
   amazon: 0xff9900,
 };
 
-const RETAILER_ICONS = {
-  target: "<:target:1> 🎯",
-  walmart: "🛒",
-  pokemoncenter: "⚡",
-  gamestop: "🎮",
-  amazon: "📦",
-};
-
 function getRetailerKey(retailer) {
   return (retailer || "").toLowerCase().replace(/\s/g, "");
 }
@@ -50,13 +42,6 @@ function getCartUrl(retailer, productUrl, identifier) {
   return productUrl || "#";
 }
 
-function getAppUrl(retailer, identifier, productUrl) {
-  const key = getRetailerKey(retailer);
-  if (key === "target") return `https://www.target.com/p/A-${identifier}`;
-  if (key === "walmart") return `https://www.walmart.com/ip/${identifier}`;
-  return productUrl || null;
-}
-
 function getLoginUrl(retailer) {
   const key = getRetailerKey(retailer);
   if (key === "target") return "https://www.target.com/account";
@@ -67,11 +52,11 @@ function getLoginUrl(retailer) {
   return "#";
 }
 
-function getOpenInAppUrl(retailer, identifier) {
+function getAppUrl(retailer, identifier, productUrl) {
   const key = getRetailerKey(retailer);
   if (key === "target") return `https://www.target.com/p/A-${identifier}`;
   if (key === "walmart") return `https://www.walmart.com/ip/${identifier}`;
-  return null;
+  return productUrl || null;
 }
 
 async function sendRestockAlert({ webhookUrl, product, status, previousStatus, price, stockCount, cartLimit, imageUrl }) {
@@ -91,19 +76,19 @@ async function sendRestockAlert({ webhookUrl, product, status, previousStatus, p
   const productUrl = product.product_url || "";
 
   const cartUrl = getCartUrl(product.retailer, productUrl, identifier);
-  const appUrl = getOpenInAppUrl(product.retailer, identifier);
+  const loginUrl = getLoginUrl(product.retailer);
+  const appUrl = getAppUrl(product.retailer, identifier, productUrl);
   const ebayUrl = getEbaySearchUrl(productName);
   const ebaySalesUrl = getEbaySalesUrl(productName);
+
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
-  // Build links line
-  const loginUrl = getLoginUrl(product.retailer);
-  const appDeepUrl = getAppUrl(product.retailer, identifier, productUrl);
+  // Build links
   const links = [];
-  if (cartUrl) links.push(`[🛒 Web Cart](${cartUrl})`);
-  if (appDeepUrl) links.push(`[📱 App](${appDeepUrl})`);
-  if (loginUrl) links.push(`[🔑 Login](${loginUrl})`);
+  if (cartUrl) links.push(`[Cart](${cartUrl})`);
+  if (appUrl) links.push(`[Open in App](${appUrl})`);
+  if (loginUrl) links.push(`[Login](${loginUrl})`);
   links.push(`[eBay](${ebayUrl})`);
   links.push(`[eBay Sales](${ebaySalesUrl})`);
 
@@ -119,7 +104,7 @@ async function sendRestockAlert({ webhookUrl, product, status, previousStatus, p
       inline: true,
     },
     {
-      name: "TCIN / SKU",
+      name: "TCIN",
       value: `\`${identifier}\``,
       inline: true,
     },
@@ -135,8 +120,8 @@ async function sendRestockAlert({ webhookUrl, product, status, previousStatus, p
 
   if (appUrl) {
     fields.push({
-      name: "Open In App",
-      value: `[Click Me](${appUrl})`,
+      name: "Open in App",
+      value: `[Click Here](${appUrl})`,
       inline: true,
     });
   }
@@ -155,9 +140,10 @@ async function sendRestockAlert({ webhookUrl, product, status, previousStatus, p
     inline: false,
   });
 
+  // Social links at very bottom
   fields.push({
     name: "\u200b",
-    value: "[𝕏 @UseHUMN](https://x.com/UseHUMN) • [🌐 humnbot.com](https://www.humnbot.com)",
+    value: "[x.com/UseHUMN](https://x.com/UseHUMN) • [humnbot.com](https://www.humnbot.com)",
     inline: false,
   });
 
@@ -174,16 +160,17 @@ async function sendRestockAlert({ webhookUrl, product, status, previousStatus, p
     timestamp: now.toISOString(),
   };
 
-  // Add retailer name as author
   const retailerLabel = {
     target: "Target Restocks",
     walmart: "Walmart Restocks",
-    pokemoncenter: "Pokémon Center Restocks",
+    pokemoncenter: "Pokemon Center Restocks",
     gamestop: "GameStop Restocks",
     amazon: "Amazon Restocks",
   }[retailerKey] || `${product.retailer} Restocks`;
 
   const payload = {
+    username: retailerLabel,
+    avatar_url: HUMN_ICON,
     embeds: [embed],
   };
 
@@ -200,7 +187,7 @@ async function sendRestockAlert({ webhookUrl, product, status, previousStatus, p
     if (!res.ok) {
       log.error("Webhook failed", { status: res.status, body, product: productName });
     } else {
-      log.info("Monitor alert sent ✅", { product: productName, status, retailer: product.retailer });
+      log.info("Monitor alert sent", { product: productName, status, retailer: product.retailer });
     }
   } catch (err) {
     log.error("Webhook error", { error: err.message, product: productName });
