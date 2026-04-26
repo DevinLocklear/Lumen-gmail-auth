@@ -97,8 +97,8 @@ async function checkByTcin(tcin) {
     const productUrl = `https://www.target.com/p/A-${tcin}`;
     const stockCount = shipping?.available_to_promise_quantity || null;
     const cartLimit = shipping?.purchase_limit || null;
-    // Target stores images at a predictable CDN URL based on TCIN
-    const imageUrl = `https://target.scene7.com/is/image/Target/GUEST_${tcin}`;
+    // Target CDN image with format params for Discord compatibility
+    const imageUrl = `https://target.scene7.com/is/image/Target/GUEST_${tcin}?fmt=pjpeg&hei=400&wid=400`;
 
     log.info("Target product checked", { tcin, status, productName: productName?.slice(0, 50), imageUrl, price });
 
