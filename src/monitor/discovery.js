@@ -52,27 +52,14 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
  */
 async function searchTarget(keyword) {
   try {
-    // Use Target category browse API — more stable than search
-    const params = new URLSearchParams({
-      key: "ff457966e64d5e877fdbad070f276d18ecec4a01",
-      category: "5xt1a",
-      channel: "WEB",
-      count: "24",
-      default_purchasability_filter: "false",
-      include_sponsored: "false",
-      keyword,
-      offset: "0",
-      page: `/c/trading-card-games/-/N-5xt1a`,
-      platform: "desktop",
-      pricing_store_id: "3991",
-      store_id: "3991",
-      visitor_id: "01800CC62F6C0201AF2C0E6116E9A0EF",
-      zip: "90210",
-      state: "CA",
-      latitude: "34.0901",
-      longitude: "-118.4065",
-    });
-    const url = `https://redsky.target.com/redsky_aggregations/v1/web/plp_search_v2?${params}`;
+    // Use Target's sitemap index — no auth needed, lists all products
+    // Sitemap for trading cards category
+    const sitemapUrls = [
+      "https://www.target.com/sitemap_products_1.xml.gz",
+    ];
+
+    // Use Target's browse API via their public endpoint
+    const url = `https://api.target.com/promotions/v3/promotions?key=ff457966e64d5e877fdbad070f276d18ecec4a01&category=5xt1a&per_page=24&page=1`;
 
     const webshareProxy = {
       host: process.env.PROXY_HOST || "p.webshare.io",
@@ -81,45 +68,62 @@ async function searchTarget(keyword) {
       pass: process.env.PROXY_PASS || "j2prfly8xpvf",
     };
 
+    // Try Target's category page directly
+    const categoryUrl = `https://www.target.com/c/trading-card-games/-/N-5xt1a?lnk=snav_ta_tradingcards`;
     const headers = {
       "User-Agent": UA,
-      "Accept": "application/json",
+      "Accept": "text/html,application/xhtml+xml",
       "Accept-Language": "en-US,en;q=0.9",
       "Referer": "https://www.target.com/",
-      "Host": "redsky.target.com",
-      "sec-fetch-mode": "cors",
-      "sec-fetch-site": "same-site",
+      "Host": "www.target.com",
     };
 
-    let result = await proxyFetch(url, { headers, timeout: 15000 }, webshareProxy);
-
+    let result = await proxyFetch(categoryUrl, { headers, timeout: 15000 }, webshareProxy);
     if (!result || result.status !== 200) {
-      result = await proxyFetch(url, { headers, timeout: 15000 }, null);
+      result = await proxyFetch(categoryUrl, { headers, timeout: 15000 }, null);
     }
 
     if (!result || result.status !== 200) {
-      log.warn("Target search non-OK", { keyword, status: result?.status });
+      log.warn("Target category page non-OK", { keyword, status: result?.status });
       return [];
     }
 
-    const data = JSON.parse(result.body);
-    const items = data?.data?.search?.products || [];
+    // Extract TCINs from page HTML
+    const html = result.body;
+    const tcinRegex = /"tcin":"(\d{7,12})"/g;
+    const nameRegex = /"title":"([^"]{10,150})"/g;
+    const tcins = new Set();
+    const products = [];
+    let match;
 
-    const products = items
-      .filter(item => item?.tcin)
-      .map(item => ({
-        tcin: item.tcin,
-        name: item?.item?.product_description?.title || null,
-        url: `https://www.target.com/p/A-${item.tcin}`,
-        seller: item?.item?.seller?.display_name || "",
-      }))
-      .filter(p => {
-        const s = (p.seller || "").toLowerCase();
-        return s === "" || s === "target";
-      });
+    while ((match = tcinRegex.exec(html)) !== null) {
+      const tcin = match[1];
+      if (!tcins.has(tcin)) {
+        tcins.add(tcin);
+        products.push({ tcin, name: null, url: `https://www.target.com/p/A-${tcin}` });
+      }
+    }
 
-    log.info("Target search found products", { keyword, count: products.length });
-    return products;
+    // Try to match names — extract all titles from nearby context
+    const titles = [];
+    while ((match = nameRegex.exec(html)) !== null) {
+      titles.push(match[1]);
+    }
+
+    // Assign names to products in order
+    products.forEach((p, i) => {
+      if (titles[i]) p.name = titles[i].replace(/\\u[\dA-F]{4}/gi, "?");
+    });
+
+    // Filter to only Pokemon TCG products by name
+    const filtered = products.filter(p =>
+      !p.name || p.name.toLowerCase().includes("pokemon") ||
+      p.name.toLowerCase().includes("tcg") ||
+      p.name.toLowerCase().includes("trading card")
+    );
+
+    log.info("Target search found products", { keyword, count: filtered.length, total: products.length });
+    return filtered;
   } catch (err) {
     log.warn("Target search failed", { keyword, error: err.message });
     return [];
