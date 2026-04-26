@@ -97,11 +97,16 @@ async function checkByTcin(tcin) {
     const productUrl = `https://www.target.com/p/A-${tcin}`;
     const stockCount = shipping?.available_to_promise_quantity || null;
     const cartLimit = shipping?.purchase_limit || null;
-    const images = pd?.item?.enrichment?.images;
-    const imageUrl = images?.primary_image_url
-      || (images?.base_url && images?.primary ? `${images.base_url}${images.primary}.jpg` : null)
+    // Log item keys to find image path
+    const itemKeys = Object.keys(pd?.item || {});
+    log.info("Target item keys", { tcin, keys: itemKeys.join(",") });
+    const enrichment = pd?.item?.enrichment;
+    const imageUrl = enrichment?.images?.primary_image_url
+      || enrichment?.image?.url
+      || pd?.item?.primary_image_url
+      || pd?.primary_image
       || null;
-    log.info("Target image debug", { tcin, imageUrl, imagesObj: JSON.stringify(images)?.slice(0, 200) });
+    log.info("Target image debug", { tcin, imageUrl, enrichment: JSON.stringify(enrichment)?.slice(0, 300) });
 
     log.info("Target product checked", { tcin, status, productName: productName?.slice(0, 50), imageUrl, price });
 
