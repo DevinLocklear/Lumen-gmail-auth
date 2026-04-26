@@ -22,6 +22,13 @@ function getDefaultWebhook() {
 }
 
 // Target search queries for Pokemon TCG
+// Target category IDs for Pokemon TCG
+// Cat: Trading Cards > Pokemon
+const TARGET_CATEGORY_IDS = [
+  "5xt1a",   // Trading Cards
+  "4xtck",   // Pokemon category
+];
+
 const TARGET_QUERIES = [
   "Pokemon Trading Card Game",
   "Pokemon TCG booster",
@@ -47,8 +54,25 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
  */
 async function searchTarget(keyword) {
   try {
-    // Use Target's main search page — more reliable than redsky API
-    const url = `https://www.target.com/s?searchTerm=${encodeURIComponent(keyword)}&category=5xt1a&type=products`;
+    // Use Target's redsky search with proper params
+    const params = new URLSearchParams({
+      key: "ff457966e64d5e877fdbad070f276d18ecec4a01",
+      keyword,
+      channel: "WEB",
+      count: "24",
+      default_purchasability_filter: "false",
+      include_sponsored: "false",
+      offset: "0",
+      page: `/s/${keyword}`,
+      platform: "desktop",
+      pricing_store_id: "3991",
+      scheduled_delivery_store_id: "3991",
+      store_id: "3991",
+      visitor_id: "01800CC62F6C0201AF2C0E6116E9A0EF",
+      zip: "90210",
+      state: "CA",
+    });
+    const url = `https://redsky.target.com/redsky_aggregations/v1/web/plp_search_v2?${params}`;
 
     const webshareProxy = {
       host: process.env.PROXY_HOST || "p.webshare.io",
@@ -59,10 +83,12 @@ async function searchTarget(keyword) {
 
     const headers = {
       "User-Agent": UA,
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept": "application/json",
       "Accept-Language": "en-US,en;q=0.9",
       "Referer": "https://www.target.com/",
-      "Host": "www.target.com",
+      "Host": "redsky.target.com",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-site",
     };
 
     let result = await proxyFetch(url, { headers, timeout: 15000 }, webshareProxy);
@@ -76,26 +102,21 @@ async function searchTarget(keyword) {
       return [];
     }
 
-    // Extract all TCINs from the page HTML
-    const tcinMatches = result.body.matchAll(/"tcin":"(\d{7,12})"/g);
-    const tcins = new Set();
-    const products = [];
+    const data = JSON.parse(result.body);
+    const items = data?.data?.search?.products || [];
 
-    for (const match of tcinMatches) {
-      const tcin = match[1];
-      if (!tcins.has(tcin)) {
-        tcins.add(tcin);
-        // Try to extract product name near this TCIN
-        const idx = result.body.indexOf(match[0]);
-        const nearby = result.body.slice(Math.max(0, idx - 500), idx + 500);
-        const nameMatch = nearby.match(/"title":"([^"]{5,150})"/);
-        products.push({
-          tcin,
-          name: nameMatch ? nameMatch[1] : null,
-          url: `https://www.target.com/p/A-${tcin}`,
-        });
-      }
-    }
+    const products = items
+      .filter(item => item?.tcin)
+      .map(item => ({
+        tcin: item.tcin,
+        name: item?.item?.product_description?.title || null,
+        url: `https://www.target.com/p/A-${item.tcin}`,
+        seller: item?.item?.seller?.display_name || "",
+      }))
+      .filter(p => {
+        const s = (p.seller || "").toLowerCase();
+        return s === "" || s === "target";
+      });
 
     log.info("Target search found products", { keyword, count: products.length });
     return products;

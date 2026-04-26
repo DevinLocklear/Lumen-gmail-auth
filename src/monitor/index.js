@@ -142,10 +142,10 @@ function startMonitor() {
   // Initial poll after 10 seconds
   setTimeout(pollCycle, 10000);
 
-  // Then poll every 30 seconds
-  pollTimer = setInterval(pollCycle, 30 * 1000);
+  // Poll every 45 seconds — gives enough time for 10+ products to check
+  pollTimer = setInterval(pollCycle, 45 * 1000);
 
-  log.info("HUMN Monitor running — polling every 30 seconds");
+  log.info("HUMN Monitor running — polling every 45 seconds");
 }
 
 /**
