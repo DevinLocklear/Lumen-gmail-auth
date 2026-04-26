@@ -66,8 +66,13 @@ async function checkByTcin(tcin) {
 
   const result = await fetchWithFallback(url, headers);
 
+  if (!result || result.status === 410) {
+    // 410 = product temporarily pulled — keep watching, don't alert
+    log.info("Target product temporarily unavailable (410)", { tcin });
+    return { status: "OUT_OF_STOCK" };
+  }
+
   if (!result || result.status !== 200) {
-    // Try alternate endpoint
     return await checkByTcinV2(tcin);
   }
 
@@ -111,6 +116,12 @@ async function checkByTcinV2(tcin) {
   };
 
   const result = await fetchWithFallback(url, headers);
+  if (result?.status === 410) {
+    // Product temporarily pulled from Target — keep watching
+    log.info("Target product temporarily unavailable (410)", { tcin });
+    return { status: "OUT_OF_STOCK" };
+  }
+
   if (!result || result.status !== 200) {
     log.warn("Target v2 API non-OK", { status: result?.status, tcin });
     return { status: "UNKNOWN" };
