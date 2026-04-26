@@ -62,7 +62,19 @@ async function checkProduct(product) {
 async function checkByTcin(tcin) {
   const url = `https://redsky.target.com/redsky_aggregations/v1/web/product_summary_with_fulfillment_v1?key=9f36aeafbe60771e321a7cc95a78140772ab3e96&tcins=${tcin}&store_id=911&zip=55413&state=MN&latitude=44.9934&longitude=-93.2774&visitor_id=01800CC62F6C0201AF2C0E6116E9A0EF&channel=WEB`;
 
-  const result = await proxyFetch(url, { headers: getHeaders(), timeout: 20000 }, getWebshareProxy());
+  let result = await proxyFetch(url, { headers: getHeaders(), timeout: 20000 }, getWebshareProxy());
+
+  // Retry with fresh proxy on 403
+  if (result.status === 403) {
+    await new Promise(r => setTimeout(r, 1000));
+    result = await proxyFetch(url, { headers: getHeaders(), timeout: 20000 }, getWebshareProxy());
+  }
+
+  // Final retry without proxy if still failing
+  if (result.status === 403 || result.status === 0) {
+    await new Promise(r => setTimeout(r, 500));
+    result = await proxyFetch(url, { headers: getHeaders(), timeout: 20000 }, null);
+  }
 
   if (result.status !== 200) {
     log.warn("Target inventory API non-OK", { status: result.status, tcin });
