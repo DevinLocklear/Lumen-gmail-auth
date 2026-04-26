@@ -102,6 +102,7 @@ async function checkByTcin(tcin) {
         "Referer": "https://www.target.com/",
         "Host": "redsky.target.com",
       }, 8000);
+      log.info("Detail API status", { tcin, status: detailResult?.status });
       if (detailResult?.status === 200) {
         const detail = JSON.parse(detailResult.body)?.data?.product;
         if (!price) price = detail?.price?.current_retail || null;
