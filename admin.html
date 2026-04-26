@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HUMN Monitor Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#080910;--bg2:#0d0f1a;--border:rgba(255,255,255,0.07);--accent:#c45aff;--green:#57f287;--red:#ff6b6b;--yellow:#ffd166;--text:#f0f0f5;--muted:#7a7a8a;--card:rgba(255,255,255,0.04)}
+    body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+    .hidden{display:none!important}
+    /* Auth */
+    .auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .auth-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:380px;text-align:center}
+    .auth-title{font-size:22px;font-weight:800;margin-bottom:8px}
+    .auth-sub{font-size:13px;color:var(--muted);margin-bottom:28px;font-weight:400}
+    /* Layout */
+    .layout{display:grid;grid-template-columns:300px 1fr;min-height:100vh}
+    .sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:24px;display:flex;flex-direction:column;gap:24px}
+    .main{padding:32px;overflow-y:auto}
+    .logo{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:800;padding-bottom:16px;border-bottom:1px solid var(--border)}
+    .logo img{width:28px;height:28px;border-radius:8px}
+    .section-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:12px}
+    /* Form */
+    .form-group{margin-bottom:14px}
+    label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace;letter-spacing:0.5px}
+    input,select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);font-family:'Syne',sans-serif;outline:none;transition:border-color 0.2s}
+    input:focus,select:focus{border-color:var(--accent)}
+    input::placeholder{color:var(--muted)}
+    select option{background:var(--bg2)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer;transition:opacity 0.2s,transform 0.2s;width:100%}
+    .btn:hover{opacity:0.85;transform:translateY(-1px)}
+    .btn-accent{background:var(--accent);color:#fff}
+    .btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}
+    .btn-danger{background:rgba(255,107,107,0.15);color:var(--red);border:1px solid rgba(255,107,107,0.2)}
+    .btn-sm{padding:6px 12px;font-size:12px;width:auto}
+    /* Page header */
+    .page-header{margin-bottom:28px}
+    .page-title{font-size:26px;font-weight:800;letter-spacing:-0.5px}
+    .page-sub{font-size:13px;color:var(--muted);margin-top:4px;font-weight:400}
+    /* Stats */
+    .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+    .stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px}
+    .stat-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:8px}
+    .stat-val{font-size:28px;font-weight:800;letter-spacing:-1px}
+    /* Product list */
+    .product-list{display:flex;flex-direction:column;gap:10px}
+    .product-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;transition:border-color 0.2s}
+    .product-card:hover{border-color:rgba(196,90,255,0.2)}
+    .product-card.in-stock{border-left:3px solid var(--green)}
+    .product-card.out-of-stock{border-left:3px solid var(--red)}
+    .product-card.ready{border-left:3px solid var(--yellow)}
+    .product-card.unknown{border-left:3px solid var(--muted)}
+    .product-info{flex:1;min-width:0}
+    .product-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+    .product-meta{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;display:flex;gap:12px;flex-wrap:wrap}
+    .product-status{font-size:11px;font-weight:700;font-family:'DM Mono',monospace;white-space:nowrap}
+    .status-in{color:var(--green)}
+    .status-out{color:var(--red)}
+    .status-ready{color:var(--yellow)}
+    .status-unknown{color:var(--muted)}
+    .product-actions{display:flex;gap:8px;flex-shrink:0}
+    /* Badge */
+    .badge{display:inline-flex;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:700;font-family:'DM Mono',monospace}
+    .badge-target{background:rgba(255,0,0,0.1);color:#ff6b6b}
+    .badge-walmart{background:rgba(0,113,206,0.1);color:#60a5fa}
+    .badge-pokemon{background:rgba(255,204,0,0.1);color:#ffd166}
+    .badge-general{background:var(--card);color:var(--muted)}
+    /* Alert */
+    .alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .alert-success{background:rgba(87,242,135,0.1);border:1px solid rgba(87,242,135,0.2);color:var(--green)}
+    .alert-error{background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.2);color:var(--red)}
+    /* Empty */
+    .empty{text-align:center;padding:60px 24px;color:var(--muted)}
+    .empty-icon{font-size:40px;margin-bottom:12px;opacity:0.4}
+    .empty-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px}
+    /* Divider */
+    .divider{height:1px;background:var(--border);margin:20px 0}
+    /* Toast */
+    #toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;transform:translateY(100px);opacity:0;transition:all 0.3s;pointer-events:none}
+    #toast.show{transform:translateY(0);opacity:1}
+    #toast.success{background:#57f287;color:#080910}
+    #toast.error{background:#ff6b6b;color:#fff}
+  </style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="authView" class="auth">
+  <div class="auth-card">
+    <img src="https://i.imgur.com/ywgtHOK.png" style="width:48px;height:48px;border-radius:12px;margin:0 auto 16px;display:block;" />
+    <div class="auth-title">HUMN Monitor Admin</div>
+    <p class="auth-sub">Enter your admin password to continue.</p>
+    <div class="form-group">
+      <input type="password" id="pwInput" placeholder="Admin password" onkeydown="if(event.key==='Enter')login()" />
+    </div>
+    <button class="btn btn-accent" onclick="login()">Sign In</button>
+    <div id="authError" class="hidden" style="color:#ff6b6b;font-size:12px;margin-top:12px;font-family:'DM Mono',monospace;">Incorrect password.</div>
+  </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="adminView" class="layout hidden">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <img src="https://i.imgur.com/ywgtHOK.png" alt="HUMN" />
+      Monitor Admin
+    </div>
+
+    <!-- Add by TCIN/SKU -->
+    <div>
+      <div class="section-title">Add by TCIN / SKU</div>
+      <div class="form-group">
+        <label>Retailer</label>
+        <select id="addRetailer">
+          <option value="target">🎯 Target</option>
+          <option value="walmart">🛒 Walmart</option>
+          <option value="pokemoncenter">⚡ Pokémon Center</option>
+          <option value="gamestop">🎮 GameStop</option>
+          <option value="amazon">📦 Amazon</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>TCIN / SKU / ASIN</label>
+        <input type="text" id="addIdentifier" placeholder="e.g. 95280894" />
+      </div>
+      <div class="form-group">
+        <label>Product Name (optional)</label>
+        <input type="text" id="addName" placeholder="e.g. Prismatic ETB" />
+      </div>
+      <div class="form-group">
+        <label>Webhook URL</label>
+        <input type="text" id="addWebhook" placeholder="https://discord.com/api/webhooks/..." />
+      </div>
+      <button class="btn btn-accent" onclick="addProduct('id')">Add Product</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Add by Keyword -->
+    <div>
+      <div class="section-title">Add by Keyword</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;font-weight:400;">For unreleased products — searches by name and auto-resolves the ID.</p>
+      <div class="form-group">
+        <label>Retailer</label>
+        <select id="kwRetailer">
+          <option value="target">🎯 Target</option>
+          <option value="walmart">🛒 Walmart</option>
+          <option value="pokemoncenter">⚡ Pokémon Center</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Search Keyword</label>
+        <input type="text" id="kwInput" placeholder="e.g. Mega Zygarde Premium" />
+      </div>
+      <div class="form-group">
+        <label>Webhook URL</label>
+        <input type="text" id="kwWebhook" placeholder="https://discord.com/api/webhooks/..." />
+      </div>
+      <button class="btn btn-secondary" onclick="addProduct('keyword')">Search & Watch</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="page-header">
+      <div class="page-title">Monitor Dashboard</div>
+      <div class="page-sub">Watching products across all retailers in real time</div>
+    </div>
+
+    <div id="alertBox" class="hidden"></div>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-label">Total Watching</div><div class="stat-val" id="statTotal">0</div></div>
+      <div class="stat"><div class="stat-label">In Stock</div><div class="stat-val" style="color:var(--green)" id="statInStock">0</div></div>
+      <div class="stat"><div class="stat-label">Out of Stock</div><div class="stat-val" style="color:var(--red)" id="statOut">0</div></div>
+      <div class="stat"><div class="stat-label">Pre-Launch</div><div class="stat-val" style="color:var(--yellow)" id="statLaunch">0</div></div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:700;">Monitored Products</div>
+      <button class="btn btn-secondary btn-sm" onclick="loadProducts()">↻ Refresh</button>
+    </div>
+
+    <div id="productList"><div class="empty"><div class="empty-icon">📭</div><div class="empty-title">Loading...</div></div></div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const SUPABASE_URL = 'https://snldxcwqezhotjtsgvsz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNubGR4Y3dxZXpob3RqdHNndnN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2ODA1MjUsImV4cCI6MjA5MTI1NjUyNX0.R0mY_Ff44VSbcGX0lFjx_yTzWlnyfTE0di4ZldEuGtQ';
+const ADMIN_PASSWORD = 'Commando1357!?!?'; // Change this to a strong password
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let products = [];
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function login() {
+  const pw = document.getElementById('pwInput').value;
+  if (pw === ADMIN_PASSWORD) {
+    document.getElementById('authView').classList.add('hidden');
+    document.getElementById('adminView').classList.remove('hidden');
+    loadProducts();
+  } else {
+    document.getElementById('authError').classList.remove('hidden');
+  }
+}
+
+// ── LOAD PRODUCTS ─────────────────────────────────────────────────────────────
+async function loadProducts() {
+  const { data, error } = await sb
+    .from('monitor_products')
+    .select('*')
+    .eq('active', true)
+    .order('created_at', { ascending: false });
+
+  if (error) { showToast('Failed to load products', 'error'); return; }
+
+  products = data || [];
+  renderProducts();
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById('statTotal').textContent = products.length;
+  document.getElementById('statInStock').textContent = products.filter(p => p.last_status === 'IN_STOCK').length;
+  document.getElementById('statOut').textContent = products.filter(p => p.last_status === 'OUT_OF_STOCK').length;
+  document.getElementById('statLaunch').textContent = products.filter(p => p.last_status === 'READY_FOR_LAUNCH').length;
+}
+
+function renderProducts() {
+  const container = document.getElementById('productList');
+
+  if (!products.length) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">👀</div><div class="empty-title">No products yet</div><p style="font-size:13px;color:var(--muted);font-weight:400;">Add a product using the form on the left.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="product-list">${products.map(p => productCard(p)).join('')}</div>`;
+}
+
+function productCard(p) {
+  const statusClass = { IN_STOCK: 'in-stock', OUT_OF_STOCK: 'out-of-stock', READY_FOR_LAUNCH: 'ready' }[p.last_status] || 'unknown';
+  const statusText = { IN_STOCK: '✅ In Stock', OUT_OF_STOCK: '❌ Out of Stock', READY_FOR_LAUNCH: '🔜 Pre-Launch' }[p.last_status] || '⏳ Unknown';
+  const statusClass2 = { IN_STOCK: 'status-in', OUT_OF_STOCK: 'status-out', READY_FOR_LAUNCH: 'status-ready' }[p.last_status] || 'status-unknown';
+  const retailerKey = (p.retailer || '').toLowerCase().replace(/\s/g, '');
+  const badgeClass = { target: 'badge-target', walmart: 'badge-walmart', pokemoncenter: 'badge-pokemon' }[retailerKey] || 'badge-general';
+  const retailerLabel = { target: '🎯 Target', walmart: '🛒 Walmart', pokemoncenter: '⚡ Pokémon Center', gamestop: '🎮 GameStop', amazon: '📦 Amazon' }[retailerKey] || p.retailer;
+  const price = p.last_price ? `$${Number(p.last_price).toFixed(2)}` : 'N/A';
+  const stock = p.last_stock_count ? `${p.last_stock_count} units` : '';
+  const lastChecked = p.last_checked_at ? new Date(p.last_checked_at).toLocaleTimeString() : 'Never';
+  const idType = p.identifier_type === 'keyword' ? '🔍 keyword' : p.identifier_type?.toUpperCase();
+
+  return `
+    <div class="product-card ${statusClass}" id="card-${p.id}">
+      <div class="product-info">
+        <div class="product-name">${p.product_name || p.identifier}</div>
+        <div class="product-meta">
+          <span class="badge ${badgeClass}">${retailerLabel}</span>
+          <span>${idType}: ${p.identifier}</span>
+          <span>Price: ${price}</span>
+          ${stock ? `<span>Stock: ${stock}</span>` : ''}
+          <span>Checked: ${lastChecked}</span>
+        </div>
+      </div>
+      <div class="product-status ${statusClass2}">${statusText}</div>
+      <div class="product-actions">
+        ${p.product_url ? `<a href="${p.product_url}" target="_blank" class="btn btn-secondary btn-sm">View</a>` : ''}
+        <button class="btn btn-danger btn-sm" onclick="removeProduct('${p.id}')">Remove</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── ADD PRODUCT ───────────────────────────────────────────────────────────────
+async function addProduct(type) {
+  let retailer, identifier, identifierType, productName, webhookUrl;
+
+  if (type === 'id') {
+    retailer = document.getElementById('addRetailer').value;
+    identifier = document.getElementById('addIdentifier').value.trim();
+    identifierType = retailer === 'amazon' ? 'asin' : retailer === 'target' ? 'tcin' : 'sku';
+    productName = document.getElementById('addName').value.trim();
+    webhookUrl = document.getElementById('addWebhook').value.trim();
+  } else {
+    retailer = document.getElementById('kwRetailer').value;
+    identifier = document.getElementById('kwInput').value.trim();
+    identifierType = 'keyword';
+    webhookUrl = document.getElementById('kwWebhook').value.trim();
+  }
+
+  if (!identifier) { showToast('Please enter a product ID or keyword', 'error'); return; }
+  if (!webhookUrl) { showToast('Please enter a webhook URL', 'error'); return; }
+  if (!webhookUrl.includes('discord.com/api/webhooks')) { showToast('Invalid webhook URL', 'error'); return; }
+
+  const { error } = await sb.from('monitor_products').upsert({
+    retailer,
+    identifier,
+    identifier_type: identifierType,
+    product_name: productName || null,
+    webhook_url: webhookUrl,
+    active: true,
+    last_status: null,
+  }, { onConflict: 'retailer,identifier' });
+
+  if (error) {
+    showToast('Failed to add product: ' + error.message, 'error');
+    return;
+  }
+
+  // Clear form
+  document.getElementById('addIdentifier').value = '';
+  document.getElementById('addName').value = '';
+  document.getElementById('kwInput').value = '';
+
+  showToast('Product added — monitor will check it shortly', 'success');
+  await loadProducts();
+}
+
+// ── REMOVE PRODUCT ────────────────────────────────────────────────────────────
+async function removeProduct(id) {
+  if (!confirm('Remove this product from monitoring?')) return;
+
+  const { error } = await sb
+    .from('monitor_products')
+    .update({ active: false })
+    .eq('id', id);
+
+  if (error) { showToast('Failed to remove product', 'error'); return; }
+
+  showToast('Product removed', 'success');
+  await loadProducts();
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `show ${type}`;
+  setTimeout(() => { t.className = ''; }, 3000);
+}
+
+// Auto-refresh every 30 seconds
+setInterval(loadProducts, 30000);
+</script>
+</body>
+</html>
